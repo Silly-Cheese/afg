@@ -31,18 +31,12 @@ async function resolveCredential(value) {
   if (username.length < 3) throw new Error('Enter a valid AFG username or email address.');
 
   const alias = await getDoc(doc(db, 'usernames', username));
-  if (alias.exists() && alias.data()?.authEmail) return alias.data().authEmail;
+  if (!alias.exists()) throw new Error('That AFG username was not found.');
+  if (alias.data()?.authEmail) return alias.data().authEmail;
 
-  // Owner Bootstrap accounts always use this internal Firebase credential format.
-  const bootstrap = await getDoc(doc(db, 'system', 'bootstrap'));
-  if (bootstrap.exists()) {
-    const ownerUser = await getDoc(doc(db, 'users', bootstrap.data().ownerUid));
-    if (ownerUser.exists() && normalizeUsername(ownerUser.data().username) === username) {
-      return ownerUser.data().authEmail || `${username}@users.afg-game.local`;
-    }
-  }
-
-  throw new Error('That username could not be resolved. Existing customer accounts may sign in once with their email while their username mapping is upgraded.');
+  // Accounts created by the original Owner Bootstrap use this deterministic
+  // internal Firebase email. This keeps the real sign-in experience username-only.
+  return `${username}@users.afg-game.local`;
 }
 
 function LoginPage() {
@@ -96,29 +90,16 @@ function LoginPage() {
           <a className="afg-login-return" href={pageUrl('/')}><ArrowLeft /> Return to website</a>
           <span className="afg-login-kicker">CUSTOMER & STAFF SIGN IN</span>
           <h2>Access your account</h2>
-          <p>Owner accounts may use the username selected during Institution Bootstrap.</p>
+          <p>Enter the username selected during registration or Institution Bootstrap.</p>
           {error && <div className="form-alert">{error}</div>}
           <form onSubmit={submit}>
             <label>
               AFG username or email
-              <input
-                type="text"
-                autoComplete="username"
-                value={credential}
-                onChange={(event) => setCredential(event.target.value)}
-                placeholder="Executive_Eagle"
-                required
-              />
+              <input type="text" autoComplete="username" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Executive_Eagle" required />
             </label>
             <label>
               Password
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </label>
             <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
