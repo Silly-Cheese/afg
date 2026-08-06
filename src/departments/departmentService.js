@@ -14,7 +14,6 @@ export const DEPARTMENT_CATALOG=[
  {id:'technology-systems',name:'Technology & Systems',accent:'#5846A3',permissions:['technology.view','systems.manage'],workTypes:['Technical issue','Account recovery','Security review','Feature request']},
  {id:'executive-office',name:'Executive Office',accent:'#C9A227',permissions:['executive.view','owner.override_all'],workTypes:['Executive review','Policy decision','Branch escalation','Institution directive']}
 ];
-
 const mapDocs=s=>s.docs.map(d=>({id:d.id,...d.data()}));
 async function safe(loader,fallback=[]){try{return await loader()}catch{return fallback}}
 export async function loadDepartmentOperations(db,uid){
@@ -35,9 +34,9 @@ export async function createDepartmentWorkItem(db,actor,data){
  const department=DEPARTMENT_CATALOG.find(x=>x.id===data.departmentId);if(!department)throw new Error('Invalid department.');
  await addDoc(collection(db,'staffTasks'),{taskId:`OPS-${crypto.randomUUID().slice(0,8).toUpperCase()}`,title:data.title.trim(),description:data.description.trim(),assigneeUid:data.assigneeUid,departmentId:data.departmentId,workType:data.workType||department.workTypes[0],priority:data.priority||'normal',status:'assigned',relatedCustomerUid:data.relatedCustomerUid.trim()||null,conflictRestricted:Boolean(data.relatedCustomerUid&&data.relatedCustomerUid===data.assigneeUid),assignedBy:actor,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
 }
-export async function updateDepartmentWorkItem(db,id,uid,status,note=''){
+export async function completeDepartmentWorkItem(db,id,uid){
  const ref=doc(db,'staffTasks',id),snap=await getDoc(ref);if(!snap.exists())throw new Error('Work item not found.');const item=snap.data();
- if(item.assigneeUid!==uid)throw new Error('Only the assigned staff member may update this work item.');
+ if(item.assigneeUid!==uid)throw new Error('Only the assigned staff member may complete this work item.');
  if(item.conflictRestricted)throw new Error('This work item is blocked by a conflict of interest.');
- await updateDoc(ref,{status,completionNote:note.trim(),completedAt:status==='completed'?serverTimestamp():null,updatedAt:serverTimestamp()});
+ await updateDoc(ref,{status:'completed',completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
 }
