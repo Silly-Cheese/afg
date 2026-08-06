@@ -24,8 +24,6 @@ const appPath = window.location.pathname.startsWith(basePath)
   : window.location.pathname;
 const pageUrl = (path = '/') => `${basePath}${path.startsWith('/') ? path : `/${path}`}`;
 
-// Older phase pages contain root-relative links. Keep those links inside the
-// GitHub Pages project base without having to weaken or duplicate each portal.
 document.addEventListener('click', (event) => {
   const anchor = event.target.closest?.('a');
   if (!anchor || event.defaultPrevented || event.button !== 0) return;
@@ -49,7 +47,6 @@ function installPortalNavigation() {
   const inject = () => {
     const nav = document.querySelector('.portal-sidebar nav');
     if (!nav) return;
-
     const links = [
       ['phase14', '/owner-control', '◆', 'Owner Control Center'],
       ['phase13', '/economy-center', '◇', 'Business & Economy'],
@@ -63,7 +60,6 @@ function installPortalNavigation() {
       ['phase5', '/applications', '▤', 'Applications'],
       ['phase4', '/progression', '★', 'Progression & Trust'],
     ];
-
     links.forEach(([key, href, icon, text]) => {
       if (nav.querySelector(`[data-${key}-link]`)) return;
       const link = document.createElement('a');
@@ -77,7 +73,6 @@ function installPortalNavigation() {
       else nav.appendChild(link);
     });
   };
-
   inject();
   new MutationObserver(inject).observe(document.body, { childList: true, subtree: true });
 }
@@ -94,6 +89,7 @@ async function start() {
     root.unmount();
     await deleteApp(app);
 
+    if (appPath === '/signin') return import('./auth/loginEntry.jsx');
     if (appPath === '/progression') return import('./progression/progressionEntry.jsx');
     if (appPath === '/applications') return import('./applications/applicationEntry.jsx');
     if (appPath === '/lending') return import('./lending/lendingEntry.jsx');
