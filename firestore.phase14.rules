@@ -1,0 +1,33 @@
+// PHASE 14 MERGE MODULE
+// Insert these match blocks inside the existing
+// match /databases/{database}/documents { ... } block.
+// These rules rely on the existing isOwner() helper.
+
+match /economicSettings/{id} {
+  allow read: if signedIn();
+  allow create, update, delete: if isOwner();
+}
+
+match /institutionEvents/{id} {
+  allow read: if signedIn();
+  allow create, update, delete: if isOwner();
+}
+
+match /achievements/{id} {
+  allow read: if signedIn();
+  allow create, update, delete: if isOwner();
+}
+
+match /ownerOverrides/{id} {
+  allow read: if isOwner();
+  allow create: if isOwner()
+    && request.resource.data.actorUid == request.auth.uid
+    && request.resource.data.immutable == true
+    && request.resource.data.reason is string
+    && request.resource.data.reason.size() >= 10;
+  allow update, delete: if false;
+}
+
+// Existing systemSettings/main rules already restrict writes to isOwner().
+// Existing auditLogs rules already allow Owner creates and prohibit mutation.
+// Merge firestore.phase12.rules and firestore.phase13.rules before this module.
