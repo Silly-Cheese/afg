@@ -1,0 +1,115 @@
+// PHASE 13 FIRESTORE RULE MERGE MODULE
+// Merge these helpers near the existing helper functions and the match blocks
+// inside match /databases/{database}/documents before deploying.
+
+// HELPERS
+function isEconomyManager(){
+  return isOwner() || hasStaffPermission([
+    'business.manage','property.manage','investments.manage',
+    'insurance.manage','owner.override_all'
+  ]);
+}
+function investmentOperation(id){
+  return p('investmentOperations/'+id);
+}
+function validInvestmentAccountUpdate(accountId){
+  let op=getAfter(investmentOperation(request.resource.data.lastOperationId)).data;
+  return signedIn()
+    && resource.data.ownerUid==request.auth.uid
+    && request.resource.data.ownerUid==resource.data.ownerUid
+    && request.resource.data.customerId==resource.data.customerId
+    && request.resource.data.diff(resource.data).affectedKeys()
+      .hasOnly(['balance','availableBalance','lastOperationId','updatedAt'])
+    && !exists(investmentOperation(request.resource.data.lastOperationId))
+    && op.ownerUid==request.auth.uid
+    && op.accountId==accountId
+    && op.type=='investment-purchase'
+    && op.amount>0
+    && op.amount<=1000000
+    && request.resource.data.balance==resource.data.balance-op.amount
+    && request.resource.data.availableBalance==resource.data.availableBalance-op.amount;
+}
+
+// ADD validInvestmentAccountUpdate(id) to the existing accounts update rule:
+// allow update: if isOwner() || validAccountUpdate(id) || validInvestmentAccountUpdate(id);
+
+match /businesses/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.status=='active'
+    &&request.resource.data.level=='startup'
+    &&request.resource.data.cashReserves>=0
+    &&request.resource.data.cashReserves<=100000;
+  allow update:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.ownerUid==resource.data.ownerUid
+    &&request.resource.data.customerId==resource.data.customerId
+    &&request.resource.data.businessId==resource.data.businessId
+    &&request.resource.data.diff(resource.data).affectedKeys()
+      .hasOnly(['revenue','expenses','cashReserves','updatedAt']));
+  allow delete:if isOwner();
+}
+match /businessTransactions/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.amount>0&&request.resource.data.amount<=100000
+    &&request.resource.data.type in ['revenue','expense']
+    &&request.resource.data.immutable==true;
+  allow update,delete:if false;
+}
+match /properties/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.status=='owned'
+    &&request.resource.data.purchasePrice>0
+    &&request.resource.data.purchasePrice<=100000000;
+  allow update:if isEconomyManager();
+  allow delete:if isOwner();
+}
+match /investments/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.principal>0
+    &&request.resource.data.principal<=1000000
+    &&request.resource.data.currentValue==request.resource.data.principal
+    &&request.resource.data.status=='active'
+    &&getAfter(investmentOperation(request.resource.data.operationId)).data.investmentDocId==id
+    &&getAfter(investmentOperation(request.resource.data.operationId)).data.ownerUid==request.auth.uid;
+  allow update:if isEconomyManager();
+  allow delete:if isOwner();
+}
+match /investmentOperations/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&!exists(investmentOperation(id))
+    &&request.resource.data.operationId==id
+    &&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.type=='investment-purchase'
+    &&request.resource.data.amount>0
+    &&request.resource.data.amount<=1000000
+    &&request.resource.data.status=='completed'
+    &&request.resource.data.immutable==true;
+  allow update,delete:if false;
+}
+match /insurancePolicies/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.coverageLimit>0
+    &&request.resource.data.premium>=0
+    &&request.resource.data.status=='active';
+  allow update:if isEconomyManager();
+  allow delete:if isOwner();
+}
+match /insuranceClaims/{id}{
+  allow read:if isEconomyManager()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
+  allow create:if signedIn()&&request.resource.data.ownerUid==request.auth.uid
+    &&request.resource.data.customerId==get(user(request.auth.uid)).data.customerId
+    &&request.resource.data.status=='submitted'
+    &&request.resource.data.uploadsAllowed==false
+    &&request.resource.data.requestedAmount>0;
+  allow update:if isEconomyManager();
+  allow delete:if isOwner();
+}
