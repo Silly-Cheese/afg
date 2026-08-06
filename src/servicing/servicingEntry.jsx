@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import LoanCenter from'./LoanCenter.jsx';createRoot(document.getElementById('root')).render(<React.StrictMode><LoanCenter/></React.StrictMode>);
