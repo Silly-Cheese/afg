@@ -2,65 +2,35 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function bootstrapPath() {
-      return /databases/$(database)/documents/system/bootstrap;
-    }
-
-    function settingsPath() {
-      return /databases/$(database)/documents/systemSettings/main;
-    }
-
-    function userPath(uid) {
-      return /databases/$(database)/documents/users/$(uid);
-    }
-
-    function bootstrapComplete() {
-      return exists(bootstrapPath()) && get(bootstrapPath()).data.status == 'complete';
-    }
-
-    function ownerUid() {
-      return get(bootstrapPath()).data.ownerUid;
-    }
-
-    function isOwner() {
-      return signedIn() && bootstrapComplete() && request.auth.uid == ownerUid();
-    }
-
-    function registrationOpen() {
-      return bootstrapComplete()
-        && exists(settingsPath())
-        && get(settingsPath()).data.registrationEnabled == true;
-    }
-
+    function signedIn() { return request.auth != null; }
+    function bootstrapPath() { return /databases/$(database)/documents/system/bootstrap; }
+    function settingsPath() { return /databases/$(database)/documents/systemSettings/main; }
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function bootstrapComplete() { return exists(bootstrapPath()) && get(bootstrapPath()).data.status == 'complete'; }
+    function ownerUid() { return get(bootstrapPath()).data.ownerUid; }
+    function isOwner() { return signedIn() && bootstrapComplete() && request.auth.uid == ownerUid(); }
+    function registrationOpen() { return bootstrapComplete() && exists(settingsPath()) && get(settingsPath()).data.registrationEnabled == true; }
     function isInitialBootstrap() {
-      return signedIn()
-        && !exists(bootstrapPath())
+      return signedIn() && !exists(bootstrapPath())
         && getAfter(bootstrapPath()).data.status == 'complete'
         && getAfter(bootstrapPath()).data.locked == true
         && getAfter(bootstrapPath()).data.ownerUid == request.auth.uid;
     }
-
     function ownCustomerCreatedAfter() {
       return getAfter(userPath(request.auth.uid)).data.uid == request.auth.uid
         && getAfter(userPath(request.auth.uid)).data.primaryRole == 'customer'
         && getAfter(userPath(request.auth.uid)).data.roles == ['customer']
         && getAfter(userPath(request.auth.uid)).data.accountStatus == 'active';
     }
-
-    function validCustomerId(customerId) {
-      return customerId == getAfter(userPath(request.auth.uid)).data.customerId;
+    function newCustomerBatch() {
+      return registrationOpen() && signedIn() && !exists(userPath(request.auth.uid)) && ownCustomerCreatedAfter();
     }
+    function validCustomerId(customerId) { return customerId == getAfter(userPath(request.auth.uid)).data.customerId; }
 
     match /system/bootstrap {
       allow read: if true;
-      allow create: if isInitialBootstrap()
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.status == 'complete'
-        && request.resource.data.locked == true;
+      allow create: if isInitialBootstrap() && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'complete' && request.resource.data.locked == true;
       allow update, delete: if false;
     }
 
@@ -72,157 +42,97 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && !exists(userPath(uid))
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.primaryRole == 'customer'
-        && request.resource.data.roles == ['customer']
-        && request.resource.data.accountStatus == 'active'
-        && request.resource.data.customerClassification == 'customer'
-      );
+      allow create: if isOwner() || (registrationOpen() && signedIn() && uid == request.auth.uid
+        && !exists(userPath(uid)) && request.resource.data.uid == request.auth.uid
+        && request.resource.data.primaryRole == 'customer' && request.resource.data.roles == ['customer']
+        && request.resource.data.accountStatus == 'active' && request.resource.data.customerClassification == 'customer');
       allow update, delete: if isOwner();
     }
 
     match /usernames/{username} {
       allow read: if signedIn();
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && request.resource.data.uid == request.auth.uid
+      allow create: if isOwner() || (newCustomerBatch() && request.resource.data.uid == request.auth.uid
         && validCustomerId(request.resource.data.customerId)
-        && !exists(/databases/$(database)/documents/usernames/$(username))
-      );
+        && !exists(/databases/$(database)/documents/usernames/$(username)));
       allow update, delete: if isOwner();
     }
 
     match /customerProfiles/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && ownCustomerCreatedAfter()
-        && request.resource.data.uid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.classification == 'customer'
-        && request.resource.data.accountStatus == 'active'
-      );
+      allow create: if isOwner() || (newCustomerBatch() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.classification == 'customer' && request.resource.data.accountStatus == 'active');
       allow update, delete: if isOwner();
     }
 
     match /customerPrivate/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && ownCustomerCreatedAfter()
-        && request.resource.data.uid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-      );
+      allow create: if isOwner() || (newCustomerBatch() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid && validCustomerId(request.resource.data.customerId));
       allow update, delete: if isOwner();
     }
 
     match /accounts/{accountId} {
       allow read: if isOwner() || (signedIn() && resource.data.ownerUid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && ownCustomerCreatedAfter()
-        && request.resource.data.ownerUid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.status == 'active'
-        && request.resource.data.type in ['checking', 'savings']
-        && request.resource.data.balance >= 0
+      allow create: if isOwner() || (newCustomerBatch()
+        && request.resource.data.ownerUid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.status == 'active' && request.resource.data.type in ['checking', 'savings']
         && request.resource.data.availableBalance == request.resource.data.balance
-      );
+        && ((request.resource.data.type == 'checking'
+          && request.resource.data.productName == 'Everyday Checking'
+          && request.resource.data.balance == get(settingsPath()).data.startingBalance)
+          || (request.resource.data.type == 'savings'
+          && request.resource.data.productName == 'Growth Savings'
+          && request.resource.data.balance == 0)));
       allow update, delete: if isOwner();
     }
 
     match /creditProfiles/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && ownCustomerCreatedAfter()
-        && request.resource.data.uid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.trustScore >= 300
-        && request.resource.data.trustScore <= 850
-      );
+      allow create: if isOwner() || (newCustomerBatch() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.trustScore == get(settingsPath()).data.startingTrustScore);
       allow update, delete: if isOwner();
     }
 
     match /academyProfiles/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && ownCustomerCreatedAfter()
-        && request.resource.data.uid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.level == 1
-        && request.resource.data.xp == 0
-      );
+      allow create: if isOwner() || (newCustomerBatch() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.level == 1 && request.resource.data.xp == 0);
       allow update, delete: if isOwner();
     }
 
     match /achievementProfiles/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && uid == request.auth.uid
-        && ownCustomerCreatedAfter()
-        && request.resource.data.uid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-      );
+      allow create: if isOwner() || (newCustomerBatch() && uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.unlocked == ['founding-customer'] && request.resource.data.points == 25);
       allow update, delete: if isOwner();
     }
 
     match /transactions/{transactionId} {
       allow read: if isOwner() || (signedIn() && resource.data.ownerUid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && ownCustomerCreatedAfter()
-        && request.resource.data.ownerUid == request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.type == 'opening_deposit'
-        && request.resource.data.direction == 'credit'
+      allow create: if isOwner() || (newCustomerBatch()
+        && request.resource.data.ownerUid == request.auth.uid && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.type == 'opening_deposit' && request.resource.data.direction == 'credit'
         && request.resource.data.status == 'completed'
-      );
+        && request.resource.data.amount == get(settingsPath()).data.startingBalance);
       allow update, delete: if isOwner();
     }
 
     match /notifications/{notificationId} {
       allow read: if isOwner() || (signedIn() && resource.data.recipientUid == request.auth.uid);
-      allow create: if isOwner() || (
-        registrationOpen()
-        && signedIn()
-        && ownCustomerCreatedAfter()
-        && request.resource.data.recipientUid == request.auth.uid
-        && request.resource.data.type == 'welcome'
-      );
+      allow create: if isOwner() || (newCustomerBatch() && request.resource.data.recipientUid == request.auth.uid
+        && request.resource.data.type == 'welcome');
       allow update, delete: if isOwner();
     }
 
     match /auditLogs/{auditId} {
       allow read: if isOwner();
-      allow create: if isOwner() || isInitialBootstrap() || (
-        registrationOpen()
-        && signedIn()
-        && ownCustomerCreatedAfter()
-        && request.resource.data.actorUid == request.auth.uid
-        && request.resource.data.actorType == 'customer'
-        && request.resource.data.action == 'customer.registration.completed'
-        && request.resource.data.immutable == true
-      );
+      allow create: if isOwner() || isInitialBootstrap() || (newCustomerBatch()
+        && request.resource.data.actorUid == request.auth.uid && request.resource.data.actorType == 'customer'
+        && request.resource.data.action == 'customer.registration.completed' && request.resource.data.immutable == true);
       allow update, delete: if false;
     }
 
@@ -231,24 +141,20 @@ service cloud.firestore {
       allow create: if isInitialBootstrap() || isOwner();
       allow update, delete: if isOwner();
     }
-
     match /departments/{id} {
       allow read: if signedIn();
       allow create: if isInitialBootstrap() || isOwner();
       allow update, delete: if isOwner();
     }
-
     match /ranks/{id} {
       allow read: if signedIn();
       allow create: if isInitialBootstrap() || isOwner();
       allow update, delete: if isOwner();
     }
-
     match /staffProfiles/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
       allow create, update, delete: if isOwner() || isInitialBootstrap();
     }
-
     match /staffPermissions/{uid} {
       allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
       allow create, update, delete: if isOwner() || isInitialBootstrap();
