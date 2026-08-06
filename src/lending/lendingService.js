@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 
 export const FINANCIAL_PRODUCTS = [
   ['personal-loan','Personal Loan'],['emergency-loan','Emergency Loan'],['vehicle-financing','Vehicle Financing'],['mortgage','Home Mortgage'],['student-loan','Student Loan'],['business-startup','Business Startup Loan'],['business-financing','Business Expansion Loan'],['equipment-loan','Equipment Loan'],['commercial-property','Commercial Property Loan'],['debt-consolidation','Debt Consolidation Loan']
@@ -7,6 +7,9 @@ export const FINANCIAL_PRODUCTS = [
 const closed=['approved','denied','withdrawn','expired','offer-declined','accepted'];
 const stamp=()=>new Date().toISOString();
 const event=(status,label,actorType,actorUid)=>({status,label,actorType,actorUid,createdAt:stamp()});
+const registeredLoanDocId=applicationDocId=>`approved-${applicationDocId}`;
+const registeredLoanId=applicationId=>`LN-${String(applicationId||crypto.randomUUID()).replace(/^APP-/,'').slice(0,12).toUpperCase()}`;
+const productName=data=>data.applicationName||FINANCIAL_PRODUCTS.find(p=>p.id===data.applicationType)?.name||'Approved Financing';
 
 export async function getStaffAccess(db,uid){
   const [bootstrap,staff,permissions]=await Promise.all([
@@ -65,10 +68,35 @@ export async function issueDecision(db,id,staff,decision){
     const snap=await tx.get(ref);if(!snap.exists())throw new Error('Application not found.');const data=snap.data();
     const approved=decision.outcome==='approved';
     const terms=approved?{approvedAmount:Number(decision.amount||data.recommendation?.amount||0),termMonths:Number(decision.termMonths||data.recommendation?.termMonths||0),interestRate:Number(decision.interestRate||data.recommendation?.interestRate||0),paymentFrequency:'monthly',conditions:decision.conditions.trim(),expiresAt:decision.expiresAt||null}:null;
+    if(approved&&(terms.approvedAmount<=0||terms.termMonths<=0))throw new Error('Approved amount and term must be greater than zero.');
     const letter={letterId:`LTR-${crypto.randomUUID().slice(0,8).toUpperCase()}`,decision:decision.outcome,subject:approved?'Financing approval':'Financing decision',body:decision.letterBody.trim(),issuedBy:staff.uid,issuedByName:staff.name,issuedAt:stamp()};
-    tx.update(ref,{status:approved?'approved':'denied',decision:{outcome:decision.outcome,reason:decision.reason.trim(),decidedBy:staff.uid,decidedByName:staff.name,decidedAt:stamp(),ownerOverride:Boolean(decision.ownerOverride)},approvedTerms:terms,decisionLetter:letter,updatedAt:serverTimestamp(),timeline:[...(data.timeline||[]),event(approved?'approved':'denied',approved?'Application approved':'Application denied','staff',staff.uid)]});
+    const loanDocId=registeredLoanDocId(id);
+    const loanId=registeredLoanId(data.applicationId);
+    tx.update(ref,{status:approved?'approved':'denied',registeredLoanDocId:approved?loanDocId:null,registeredLoanId:approved?loanId:null,decision:{outcome:decision.outcome,reason:decision.reason.trim(),decidedBy:staff.uid,decidedByName:staff.name,decidedAt:stamp(),ownerOverride:Boolean(decision.ownerOverride)},approvedTerms:terms,decisionLetter:letter,updatedAt:serverTimestamp(),timeline:[...(data.timeline||[]),event(approved?'approved':'denied',approved?'Application approved and loan registered':'Application denied','staff',staff.uid)]});
     tx.set(doc(collection(db,'lendingDecisions')),{applicationId:data.applicationId,applicationDocId:id,applicantUid:data.applicantUid,customerId:data.customerId,outcome:decision.outcome,terms,reason:decision.reason.trim(),letterId:letter.letterId,decidedBy:staff.uid,ownerOverride:Boolean(decision.ownerOverride),immutable:true,createdAt:serverTimestamp()});
-    tx.set(doc(collection(db,'auditLogs')),{actorUid:staff.uid,actorType:decision.ownerOverride?'owner':'staff',action:decision.ownerOverride?'lending.decision.overridden':'lending.decision.issued',targetType:'application',targetId:data.applicationId,reason:decision.reason.trim(),immutable:true,createdAt:serverTimestamp()});
+    if(approved){
+      tx.set(doc(db,'loans',loanDocId),{
+        loanId,
+        applicationId:data.applicationId,
+        applicationDocId:id,
+        ownerUid:data.applicantUid,
+        customerId:data.customerId,
+        productType:data.applicationType||'approved-financing',
+        productName:productName(data),
+        originalPrincipal:terms.approvedAmount,
+        remainingPrincipal:terms.approvedAmount,
+        interestRate:terms.interestRate,
+        termMonths:terms.termMonths,
+        paymentFrequency:terms.paymentFrequency,
+        status:'offer-pending',
+        servicingStatus:'awaiting-customer-acceptance',
+        customerAcceptanceStatus:'pending',
+        approvedAt:serverTimestamp(),
+        createdAt:serverTimestamp(),
+        updatedAt:serverTimestamp()
+      });
+    }
+    tx.set(doc(collection(db,'auditLogs')),{actorUid:staff.uid,actorType:decision.ownerOverride?'owner':'staff',action:approved?'lending.loan.registered':decision.ownerOverride?'lending.decision.overridden':'lending.decision.issued',targetType:approved?'loan':'application',targetId:approved?loanId:data.applicationId,reason:decision.reason.trim(),immutable:true,createdAt:serverTimestamp()});
   });
 }
 
@@ -78,10 +106,30 @@ export async function respondToOffer(db,id,uid,response){
     const snap=await tx.get(ref);if(!snap.exists())throw new Error('Application not found.');const data=snap.data();
     if(data.applicantUid!==uid||data.status!=='approved')throw new Error('This offer is not available.');
     const accepted=response==='accept';
+    const loanDocId=data.registeredLoanDocId||registeredLoanDocId(id);
+    const loanRef=doc(db,'loans',loanDocId);
+    const loanSnap=await tx.get(loanRef);
     tx.update(ref,{status:accepted?'accepted':'offer-declined',customerResponse:{response:accepted?'accepted':'declined',respondedAt:stamp()},updatedAt:serverTimestamp(),timeline:[...(data.timeline||[]),event(accepted?'accepted':'offer-declined',accepted?'Customer accepted approved terms':'Customer declined approved terms','customer',uid)]});
+    const terms=data.approvedTerms||{};
+    const baseLoan={
+      loanId:data.registeredLoanId||registeredLoanId(data.applicationId),
+      applicationId:data.applicationId,
+      applicationDocId:id,
+      ownerUid:uid,
+      customerId:data.customerId,
+      productType:data.applicationType||'approved-financing',
+      productName:productName(data),
+      originalPrincipal:Number(terms.approvedAmount||0),
+      remainingPrincipal:Number(terms.approvedAmount||0),
+      interestRate:Number(terms.interestRate||0),
+      termMonths:Number(terms.termMonths||0),
+      paymentFrequency:terms.paymentFrequency||'monthly',
+      updatedAt:serverTimestamp()
+    };
     if(accepted){
-      const loanId=`LN-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
-      tx.set(doc(db,'loans',loanId),{loanId,applicationId:data.applicationId,applicationDocId:id,ownerUid:uid,customerId:data.customerId,productType:data.applicationType,productName:data.applicationName,originalPrincipal:data.approvedTerms.approvedAmount,remainingPrincipal:data.approvedTerms.approvedAmount,interestRate:data.approvedTerms.interestRate,termMonths:data.approvedTerms.termMonths,paymentFrequency:data.approvedTerms.paymentFrequency,status:'pending-activation',servicingStatus:'awaiting-phase-7',createdAt:serverTimestamp()});
+      tx.set(loanRef,{...baseLoan,status:'pending-activation',servicingStatus:'awaiting-activation',customerAcceptanceStatus:'accepted',acceptedAt:serverTimestamp(),createdAt:loanSnap.exists()?loanSnap.data().createdAt:serverTimestamp()},{merge:true});
+    }else if(loanSnap.exists()){
+      tx.update(loanRef,{status:'cancelled',servicingStatus:'offer-declined',customerAcceptanceStatus:'declined',declinedAt:serverTimestamp(),updatedAt:serverTimestamp()});
     }
   });
 }
