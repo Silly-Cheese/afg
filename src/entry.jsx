@@ -5,6 +5,7 @@ import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import BootstrapApp from './bootstrap/BootstrapApp.jsx';
 import './styles.css';
 import './bootstrap/bootstrap.css';
+import './stabilization.css';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCG7LQR2vM2r68Y414jToA1_CDmUE_Ncdw',
