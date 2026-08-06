@@ -10,6 +10,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/system/bootstrap;
     }
 
+    function settingsPath() {
+      return /databases/$(database)/documents/systemSettings/main;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
     function bootstrapComplete() {
       return exists(bootstrapPath()) && get(bootstrapPath()).data.status == 'complete';
     }
@@ -22,8 +30,12 @@ service cloud.firestore {
       return signedIn() && bootstrapComplete() && request.auth.uid == ownerUid();
     }
 
-    // A bootstrap write is valid only when the complete bootstrap record is
-    // created in the same atomic batch and names the authenticated user as owner.
+    function registrationOpen() {
+      return bootstrapComplete()
+        && exists(settingsPath())
+        && get(settingsPath()).data.registrationEnabled == true;
+    }
+
     function isInitialBootstrap() {
       return signedIn()
         && !exists(bootstrapPath())
@@ -32,9 +44,18 @@ service cloud.firestore {
         && getAfter(bootstrapPath()).data.ownerUid == request.auth.uid;
     }
 
+    function ownCustomerCreatedAfter() {
+      return getAfter(userPath(request.auth.uid)).data.uid == request.auth.uid
+        && getAfter(userPath(request.auth.uid)).data.primaryRole == 'customer'
+        && getAfter(userPath(request.auth.uid)).data.roles == ['customer']
+        && getAfter(userPath(request.auth.uid)).data.accountStatus == 'active';
+    }
+
+    function validCustomerId(customerId) {
+      return customerId == getAfter(userPath(request.auth.uid)).data.customerId;
+    }
+
     match /system/bootstrap {
-      // Public status read is required so the application can choose between
-      // the one-time setup wizard and the normal institution website.
       allow read: if true;
       allow create: if isInitialBootstrap()
         && request.resource.data.ownerUid == request.auth.uid
@@ -43,9 +64,196 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Every other initialization record must be part of the same secure batch.
-    // After initialization, the protected Owner has global access. Phase 2B will
-    // add narrowly scoped customer self-service rules.
+    match /systemSettings/main {
+      allow read: if true;
+      allow create: if isInitialBootstrap() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && !exists(userPath(uid))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.primaryRole == 'customer'
+        && request.resource.data.roles == ['customer']
+        && request.resource.data.accountStatus == 'active'
+        && request.resource.data.customerClassification == 'customer'
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /usernames/{username} {
+      allow read: if signedIn();
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && !exists(/databases/$(database)/documents/usernames/$(username))
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /customerProfiles/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && ownCustomerCreatedAfter()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.classification == 'customer'
+        && request.resource.data.accountStatus == 'active'
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /customerPrivate/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && ownCustomerCreatedAfter()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /accounts/{accountId} {
+      allow read: if isOwner() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && ownCustomerCreatedAfter()
+        && request.resource.data.ownerUid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.status == 'active'
+        && request.resource.data.type in ['checking', 'savings']
+        && request.resource.data.balance >= 0
+        && request.resource.data.availableBalance == request.resource.data.balance
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /creditProfiles/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && ownCustomerCreatedAfter()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.trustScore >= 300
+        && request.resource.data.trustScore <= 850
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /academyProfiles/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && ownCustomerCreatedAfter()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.level == 1
+        && request.resource.data.xp == 0
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /achievementProfiles/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && uid == request.auth.uid
+        && ownCustomerCreatedAfter()
+        && request.resource.data.uid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isOwner() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && ownCustomerCreatedAfter()
+        && request.resource.data.ownerUid == request.auth.uid
+        && validCustomerId(request.resource.data.customerId)
+        && request.resource.data.type == 'opening_deposit'
+        && request.resource.data.direction == 'credit'
+        && request.resource.data.status == 'completed'
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner() || (signedIn() && resource.data.recipientUid == request.auth.uid);
+      allow create: if isOwner() || (
+        registrationOpen()
+        && signedIn()
+        && ownCustomerCreatedAfter()
+        && request.resource.data.recipientUid == request.auth.uid
+        && request.resource.data.type == 'welcome'
+      );
+      allow update, delete: if isOwner();
+    }
+
+    match /auditLogs/{auditId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isInitialBootstrap() || (
+        registrationOpen()
+        && signedIn()
+        && ownCustomerCreatedAfter()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.actorType == 'customer'
+        && request.resource.data.action == 'customer.registration.completed'
+        && request.resource.data.immutable == true
+      );
+      allow update, delete: if false;
+    }
+
+    match /branches/{id} {
+      allow read: if signedIn();
+      allow create: if isInitialBootstrap() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /departments/{id} {
+      allow read: if signedIn();
+      allow create: if isInitialBootstrap() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /ranks/{id} {
+      allow read: if signedIn();
+      allow create: if isInitialBootstrap() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /staffProfiles/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create, update, delete: if isOwner() || isInitialBootstrap();
+    }
+
+    match /staffPermissions/{uid} {
+      allow read: if isOwner() || (signedIn() && uid == request.auth.uid);
+      allow create, update, delete: if isOwner() || isInitialBootstrap();
+    }
+
     match /{document=**} {
       allow create: if isInitialBootstrap() || isOwner();
       allow read, update, delete: if isOwner();
