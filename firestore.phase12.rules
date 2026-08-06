@@ -1,0 +1,28 @@
+// Merge these Phase 12 matches inside the existing
+// match /databases/{database}/documents block in firestore.rules.
+// Existing helper functions required: signedIn(), isOwner(), isStaff(), isStaffManager(), ownerUid().
+
+match /performanceReviews/{id} {
+  allow read: if isOwner() || (signedIn() && resource.data.staffUid == request.auth.uid) || isStaffManager();
+  allow create: if isStaffManager()
+    && request.resource.data.reviewedBy == request.auth.uid
+    && request.resource.data.immutable == true;
+  allow update, delete: if false;
+}
+
+match /careerRequests/{id} {
+  allow read: if isOwner() || isStaffManager() || (signedIn() && resource.data.staffUid == request.auth.uid);
+  allow create: if isStaff()
+    && request.resource.data.staffUid == request.auth.uid
+    && request.resource.data.status == 'submitted';
+  allow update: if isStaffManager()
+    && resource.data.status == 'submitted'
+    && request.resource.data.status in ['approved', 'denied'];
+  allow delete: if isOwner();
+}
+
+match /careerEvents/{id} {
+  allow read: if isOwner() || isStaffManager() || (signedIn() && resource.data.staffUid == request.auth.uid);
+  allow create: if isStaffManager() && request.resource.data.immutable == true;
+  allow update, delete: if false;
+}
