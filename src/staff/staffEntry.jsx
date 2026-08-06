@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import StaffWorkspace from'./StaffWorkspace.jsx';createRoot(document.getElementById('root')).render(<React.StrictMode><StaffWorkspace/></React.StrictMode>);
