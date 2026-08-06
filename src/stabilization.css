@@ -2,8 +2,13 @@
 :root{color-scheme:light}
 html,body,#root{min-height:100%;overflow-x:hidden}
 select,input,textarea,button{font:inherit}
-select{color:#111!important;background:#fff!important;color-scheme:light}
-select option{color:#111!important;background:#fff!important}
+select{color:#111!important;background:#fff!important;color-scheme:light;-webkit-text-fill-color:#111}
+select option{color:#111!important;background:#fff!important;-webkit-text-fill-color:#111}
+
+/* Replace development-phase labels with permanent product labels. */
+.banking-modal .eyebrow,.academy-header>div>span{font-size:0!important}
+.banking-modal .eyebrow::after{content:'AFG PERSONAL BANKING';font-size:13px}
+.academy-header>div>span::after{content:'APEX FINANCIAL ACADEMY';font-size:13px}
 
 /* Banking dialogs */
 .banking-modal-backdrop{padding:16px!important;align-items:center!important;overflow-y:auto!important}
@@ -13,10 +18,11 @@ select option{color:#111!important;background:#fff!important}
 
 /* Customer mobile drawer */
 @media(max-width:760px){
- .portal-sidebar{width:min(86vw,340px)!important;max-width:340px!important;height:100dvh!important;overflow-y:auto!important;padding-bottom:max(24px,env(safe-area-inset-bottom))!important}
- .portal-sidebar nav{gap:4px!important}
- .portal-sidebar nav a,.portal-sidebar nav button{min-height:48px!important;font-size:16px!important;padding:11px 14px!important}
- .portal-sidebar .portal-group{font-size:12px!important;margin:14px 14px 4px!important}
+ .portal-sidebar{width:min(86vw,340px)!important;max-width:340px!important;height:100dvh!important;overflow-y:auto!important;padding:18px 14px max(24px,env(safe-area-inset-bottom))!important}
+ .portal-sidebar nav{gap:2px!important}
+ .portal-sidebar nav a,.portal-sidebar nav button{min-height:44px!important;font-size:15px!important;padding:9px 12px!important}
+ .portal-sidebar nav svg{width:19px!important;height:19px!important}
+ .portal-sidebar .portal-group{font-size:11px!important;margin:12px 12px 3px!important}
  .portal-sidebar .sidebar-footer{display:none!important}
  .portal-content{padding:18px!important}
  .portal-welcome{display:block!important}
@@ -27,9 +33,14 @@ select option{color:#111!important;background:#fff!important}
  .banking-modal .modal-actions button{width:100%!important}
 }
 
-/* Dedicated phase portals */
+/* Dedicated portals */
 .loan-shell main,.academy-shell main,.admin-shell main{min-width:0}
 .loan-shell select,.academy-shell select,.admin-shell select{color:#111!important;background:#fff!important}
+.customer-loan-actions,.servicing-actions{margin-top:24px;padding:22px;border:1px solid #e1e1e1;border-radius:22px;background:#fafafa}
+.customer-loan-actions label,.servicing-actions label{display:grid;gap:7px;margin:14px 0;font-weight:700}
+.customer-loan-actions select,.customer-loan-actions input,.customer-loan-actions textarea,.servicing-actions select,.servicing-actions input,.servicing-actions textarea{width:100%;min-height:50px;border:1px solid #d2d2d2;border-radius:14px;padding:12px;background:#fff;color:#111}
+.customer-loan-actions button,.servicing-actions>button{min-height:50px;border:0;border-radius:14px;background:#111;color:#fff;padding:12px 18px;font-weight:800}
+.admin-summary{padding:16px;border-radius:14px;background:#f3f3f3;margin:14px 0}
 @media(max-width:760px){
  .loan-shell,.academy-shell,.admin-shell{display:block!important}
  .loan-shell>aside,.academy-shell>aside,.admin-shell>aside{position:static!important;width:100%!important;min-height:auto!important;display:flex!important;flex-wrap:wrap!important;gap:8px!important;padding:14px!important}
@@ -41,4 +52,5 @@ select option{color:#111!important;background:#fff!important}
  .loan-workspace,.loan-list{padding:20px!important}
  .loan-metrics{grid-template-columns:1fr 1fr!important}
  .academy-metrics{grid-template-columns:1fr!important}
+ .customer-loan-actions,.servicing-actions{padding:18px!important}
 }
