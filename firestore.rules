@@ -1,0 +1,15 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Phase 1 is authentication-first. All application data remains locked
+    // until Phase 2 installs the customer and Owner Bootstrap data model.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
