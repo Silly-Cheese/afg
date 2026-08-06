@@ -1,0 +1,39 @@
+name: Validate Firestore Rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - firebase.json
+      - .github/workflows/validate-firestore-rules.yml
+  pull_request:
+    paths:
+      - firestore.rules
+      - firebase.json
+      - .github/workflows/validate-firestore-rules.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compile Firestore rules in emulator
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-afg "echo Firestore rules compiled successfully"
