@@ -8,13 +8,14 @@ export async function loadStaffWorkspace(db,uid){
  ]);
  const isOwner=bootstrap.exists()&&bootstrap.data().ownerUid===uid;
  const permissions=permissionSnap.exists()?permissionSnap.data().permissions||[]:[];
+ const mayManage=isOwner||permissions.includes('staff.manage');
+ const permissionMap={};if(mayManage){const snap=await getDocs(collection(db,'staffPermissions'));snap.docs.forEach(x=>permissionMap[x.id]=x.data().permissions||[]);}
  const profile=profileSnap.exists()?profileSnap.data():(isOwner?{uid,staffId:'STF-000001',rankName:'Founder & Owner',position:'Founder and Owner',departmentId:'executive-office',branchId:'capital',staffStatus:'active',probationStatus:'exempt'}:null);
- const usersByUid={};for(const p of directorySnap.docs){const u=await getDoc(doc(db,'users',p.id));usersByUid[p.id]=u.exists()?u.data():{};}
  return{access:{isOwner,allowed:isOwner||Boolean(profile),permissions},user:userSnap.data(),profile,
   tasks:tasksSnap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)),
   training:trainingSnap.docs.map(x=>({id:x.id,...x.data()})),policies:policiesSnap.docs.map(x=>({id:x.id,...x.data()})).filter(x=>x.active!==false),
   announcements:announcementsSnap.docs.map(x=>({id:x.id,...x.data()})).filter(x=>x.active!==false).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)),
-  directory:directorySnap.docs.map(x=>({uid:x.id,...x.data(),displayName:usersByUid[x.id]?.displayName||usersByUid[x.id]?.username||'',permissions:x.id===uid?permissions:[]})).filter(x=>x.staffStatus!=='terminated')};
+  directory:directorySnap.docs.map(x=>({uid:x.id,...x.data(),displayName:x.data().displayName||x.data().position||x.data().staffId,permissions:permissionMap[x.id]||[]})).filter(x=>x.staffStatus!=='terminated')};
 }
 export async function completeTask(db,id,uid){const ref=doc(db,'staffTasks',id),snap=await getDoc(ref);if(!snap.exists()||snap.data().assigneeUid!==uid)throw new Error('Task not found.');await updateDoc(ref,{status:'completed',completedAt:serverTimestamp(),updatedAt:serverTimestamp()});}
 export async function createTask(db,actorUid,data){if(!data.assigneeUid||data.title.trim().length<3)throw new Error('Choose a staff member and enter a task title.');await addDoc(collection(db,'staffTasks'),{taskId:`TSK-${crypto.randomUUID().slice(0,8).toUpperCase()}`,title:data.title.trim(),description:data.description.trim(),assigneeUid:data.assigneeUid,priority:data.priority||'normal',status:'assigned',assignedBy:actorUid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});}
