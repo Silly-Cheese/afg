@@ -1,0 +1,66 @@
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+
+export const APPLICATION_TYPES = [
+  { id: 'personal-loan', name: 'Personal Loan', category: 'financial' },
+  { id: 'vehicle-financing', name: 'Vehicle Financing', category: 'financial' },
+  { id: 'mortgage', name: 'Mortgage', category: 'financial' },
+  { id: 'business-financing', name: 'Business Financing', category: 'financial' },
+  { id: 'staff-application', name: 'Staff Application', category: 'staff' },
+];
+
+export const APPLICATION_STATUSES = ['draft','submitted','initial-review','assigned','information-requested','department-review','final-review','approved','denied','withdrawn','expired'];
+
+export async function loadApplications(db, uid) {
+  const snapshot = await getDocs(query(collection(db, 'applications'), where('applicantUid', '==', uid)));
+  return snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a,b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+}
+
+export async function createDraft(db, userRecord, type) {
+  const selected = APPLICATION_TYPES.find(item => item.id === type);
+  if (!selected) throw new Error('Choose a valid application type.');
+  const ref = await addDoc(collection(db, 'applications'), {
+    applicationId: `APP-${crypto.randomUUID().slice(0,8).toUpperCase()}`,
+    applicantUid: userRecord.uid,
+    customerId: userRecord.customerId,
+    applicationType: selected.id,
+    applicationName: selected.name,
+    category: selected.category,
+    status: 'draft',
+    currentStep: 1,
+    responses: {},
+    applicantMessages: [],
+    timeline: [{ status: 'draft', label: 'Draft created', actorType: 'customer', createdAt: new Date().toISOString() }],
+    assignedReviewerUid: null,
+    internalNotesCount: 0,
+    uploadsAllowed: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function saveDraft(db, applicationId, uid, responses, currentStep) {
+  const ref = doc(db, 'applications', applicationId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists() || snapshot.data().applicantUid !== uid) throw new Error('Application not found.');
+  if (snapshot.data().status !== 'draft' && snapshot.data().status !== 'information-requested') throw new Error('This application can no longer be edited.');
+  await updateDoc(ref, { responses, currentStep, updatedAt: serverTimestamp() });
+}
+
+export async function submitApplication(db, applicationId, uid, responses) {
+  const ref = doc(db, 'applications', applicationId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists() || snapshot.data().applicantUid !== uid) throw new Error('Application not found.');
+  if (!['draft','information-requested'].includes(snapshot.data().status)) throw new Error('This application cannot be submitted.');
+  const timeline = [...(snapshot.data().timeline || []), { status: 'submitted', label: 'Application submitted', actorType: 'customer', createdAt: new Date().toISOString() }];
+  await updateDoc(ref, { responses, status: 'submitted', submittedAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline });
+}
+
+export async function withdrawApplication(db, applicationId, uid) {
+  const ref = doc(db, 'applications', applicationId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists() || snapshot.data().applicantUid !== uid) throw new Error('Application not found.');
+  if (['approved','denied','withdrawn','expired'].includes(snapshot.data().status)) throw new Error('This application is already closed.');
+  const timeline = [...(snapshot.data().timeline || []), { status: 'withdrawn', label: 'Application withdrawn', actorType: 'customer', createdAt: new Date().toISOString() }];
+  await updateDoc(ref, { status: 'withdrawn', withdrawnAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline });
+}
