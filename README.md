@@ -2,88 +2,105 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
 
-## Current release — Phase 9
+## Current release — Phase 10
 
-Earlier phases established the public website, Firebase authentication, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff applications, and appointments.
+Earlier phases established the public website, Firebase authentication, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, appointments, and the Staff Workspace.
 
-### Phase 9 staff workspace and permissions
+### Phase 10 departments and specialized operations
 
-- Dedicated `/staff` workspace
-- Staff-only access gate
-- Owner-compatible executive staff profile
-- Rank, position, department, branch, status, and probation display
-- Staff overview dashboard
-- Personal task queue
-- Task completion workflow
-- Staff directory
-- Career profile
-- Required-training summary
-- Internal policy center
-- Internal announcements
-- Manager task assignment
-- Protected permission manager
-- Responsive desktop and mobile staff interface
-- Direct links to Customer Portal, Careers, Lending, and Loan Center
+- Dedicated `/departments` operations center
+- Twelve department-specific workspaces
+- Permission-aware department navigation
+- Department-colored visual identities
+- Operational work queues
+- Department work types
+- Priority and critical-work indicators
+- Connected-system metrics
+- Department staffing totals
+- Manager work assignment
+- Assignee-only completion workflow
+- Conflict-of-interest blocking
+- Existing Lending, Loan Servicing, Hiring, and Staff Workspace connections
+- Responsive desktop and mobile interface
 
-## Staff workspace areas
+## Departments
 
-### Overview
+- Customer Services
+- Banking Operations
+- Lending & Underwriting
+- Collections & Recovery
+- Business & Commercial Services
+- Fraud & Investigations
+- Risk & Compliance
+- Internal Audit
+- Human Resources
+- Training & Development
+- Technology & Systems
+- Executive Office
 
-Shows the staff member's rank, position, department, branch, open assignments, training obligations, probation state, and recent announcements.
+Each department has its own accent color, permission package, terminology, available work types, operational queue, metrics, and connected systems.
 
-### My Work
+## Connected operations
 
-Staff members can review and complete only tasks assigned to their own Staff ID and UID. Authorized managers and the Owner can assign work to staff members.
+### Lending & Underwriting
 
-### Staff Directory
+Displays the live count of open financial applications and links directly to the Phase 6 Lending Workspace.
 
-Authenticated staff can view institution-facing staff identity fields including Staff ID, rank, position, department, branch, and status. Customer-private information and HR notes are not exposed through the directory.
+### Collections & Recovery
 
-### My Career
+Displays loans requiring specialized servicing and links directly to the Phase 7 Loan Center.
 
-Displays the permanent Staff ID, current rank, position, organizational assignments, staff standing, probation state, and onboarding or training assignments.
+### Human Resources
 
-### Policies and Announcements
+Displays open staff applications and links directly to the Phase 8 Careers and Hiring Center.
 
-Staff can read internal policies and announcements. The Owner and staff with `staff.manage` permission can publish new policies and announcements. Ordinary staff cannot edit or delete institutional records.
+### Other departments
 
-### Permission Management
+Customer Services, Banking Operations, Commercial Services, Fraud, Compliance, Audit, Training, Technology, and Executive Operations use structured department work items. This provides usable departmental gameplay now while preserving room for deeper case systems in later releases.
 
-The Owner and authorized staff managers can update protected staff permission packages. Permissions are entered as exact capability keys, such as:
+## Department work items
 
-```text
-applications.view
-applications.review
-loans.view
-collections.manage
-staff.manage
-```
+Authorized managers can create work items containing:
 
-The Founder and Owner permission package is protected and cannot be replaced, reduced, or deleted through the Staff Workspace.
+- Department
+- Assigned staff member
+- Work type
+- Title
+- Instructions
+- Priority
+- Optional related customer UID
+
+Work items receive permanent `OPS-` identifiers and appear in the appropriate department queue.
+
+Assigned staff may complete only their own work. Ordinary staff cannot reassign, rewrite, or delete work items.
+
+## Conflict-of-interest controls
+
+A manager may enter a related Customer UID when assigning work. If the related UID matches the assigned employee's own customer identity, the work item is automatically marked conflict-restricted and cannot be completed by that staff member.
+
+This extends the platform principle that staff may not process records connected to their own customer identity.
 
 ## Access model
 
-Phase 9 continues the institutional access principle:
-
-> Rank determines authority. Department determines responsibility. Branch determines assignment. Permissions determine exact capabilities.
-
-A staff title alone does not grant every department tool. Specialized systems such as Lending and Loan Servicing continue to verify protected permission records before granting operational access.
-
-## Conflict-of-interest boundaries
-
-Staff and customer identities remain attached to the same login but continue to operate in separate portal contexts. Existing application, lending, and servicing safeguards prevent customers or staff members from altering protected records through ordinary customer workflows. The Owner retains global override authority, with audited privileged actions.
+- The Owner and `staff.manage` users can view all department workspaces and assign work.
+- Ordinary staff see their assigned department and any additional department unlocked by exact permissions.
+- Department access does not automatically grant protected lending, collections, HR, or management capabilities.
+- Connected systems continue to enforce their original protected permissions.
+- The Owner retains global access and override authority.
 
 ## Security model
 
-- Only appointed staff or the Owner may enter `/staff`.
-- Staff may read staff-directory identity records but not customer-private records.
-- Staff may read only tasks assigned to them unless they hold management permission.
-- Staff may complete only their own assigned tasks.
-- Only the Owner or `staff.manage` users may assign tasks, publish internal content, or manage permissions.
-- Permission managers cannot replace or delete the Owner permission record.
-- Permission updates create immutable audit entries.
-- Policies and announcements are read-only to ordinary staff.
-- The Owner retains global authority.
+Phase 10 uses the existing Phase 9 `staffTasks`, staff-directory, application, loan, and permission rules.
+
+- Staff may read only their own work unless they are authorized managers.
+- Only authorized managers may create department assignments.
+- Staff may complete only their own assigned work.
+- Conflict-restricted assignments cannot be completed.
+- Financial applications and loans remain protected by their specialized permissions.
+- Private customer and HR data are not exposed through the department directory.
+- The Owner permission package remains protected.
+
+No Firestore rules change is required specifically for Phase 10. The latest committed rules from Phase 9 must still be deployed.
 
 ## Required Firebase preparation
 
@@ -92,8 +109,6 @@ Staff and customer identities remain attached to the same login but continue to 
 3. Deploy the included `firestore.rules` after every rules update.
 4. Add the website host under **Authentication → Authorized domains**.
 5. Complete the Institution Bootstrap exactly once.
-
-Deploy the Phase 9 Firestore rules before opening the Staff Workspace, assigning tasks, publishing policies, or managing permissions.
 
 ## Local development
 
@@ -107,4 +122,4 @@ The application may be deployed to any static host supporting SPA fallback to `i
 
 ## Safety
 
-No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, résumés, or attachments. All AFG balances, applications, staff roles, assignments, and products are fictional and have no cash value.
+No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, résumés, or attachments. All AFG balances, applications, staff roles, department assignments, and products are fictional and have no cash value.
