@@ -2,91 +2,118 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
 
-## Current release — Phase 11
+## Current release — Phase 12
 
-Earlier phases established the public website, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, the Staff Workspace, permissions, and department operations.
+Earlier phases established the public website, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, the Staff Workspace, permissions, department operations, and the Apex Financial Academy.
 
-## Phase 11 — Apex Financial Academy
+## Phase 12 — Careers, Branches, and Performance
 
-Phase 11 adds the complete customer education and staff training layer at `/academy-center`.
+Phase 12 adds the long-term staff career and institutional management layer at `/career-center`.
 
-### Customer Academy
+### Career center
 
-- Course catalog
-- Course enrollment
-- Lesson reader
-- Final assessments
-- Passing-score requirements
-- Academy XP
-- Academy levels
-- Completion history
-- Permanent certificates
-- Customer and staff course audiences
+Staff can review:
 
-### Staff Academy
+- Permanent Staff ID
+- Current rank and position
+- Department and branch assignments
+- Probation status
+- Completed Academy certificates
+- Required training progress
+- Promotion readiness
+- Performance-review history
+- Career-request history
 
-- Required onboarding courses
-- Department training
-- Staff training assignments
-- Due dates
-- Training status
-- Certificate records
-- Promotion-readiness foundation
+### Promotion readiness
 
-### Academy management
+The portal evaluates four readiness categories:
 
-The Owner and authorized academy managers can:
+- Required training completion
+- Probation completion
+- Performance standard
+- Clear disciplinary standing
 
-- Create courses
-- Choose customer or staff audiences
-- Add lesson content
-- Build two-option assessment questions
-- Set passing scores
-- Set XP rewards
-- Mark courses required
-- Assign staff courses
-- Set assignment due dates
+Readiness is advisory. Promotions are never granted automatically.
 
-Default launch courses include Financial Foundations, Responsible Borrowing, AFG Staff Orientation, and Customer Privacy & Safety.
+### Career requests
 
-## Certificate model
+Staff can submit structured requests for:
 
-Passing a final assessment creates an immutable certificate containing:
+- Leave
+- Temporary inactivity
+- Branch transfer
+- Department transfer
+- Promotion
+- Resignation
+- Return from leave
 
-- Certificate ID
-- Course ID and title
-- Holder UID
-- Score
-- XP award
-- Issue timestamp
-- Active status
+Requests may include a requested branch, department, or rank. Managers and the Owner can approve or deny pending requests.
 
-Certificates cannot be edited or deleted through ordinary workflows.
+### Performance reviews
 
-## Progression integration
+Authorized managers can create reviews covering:
 
-Completed courses increase Academy XP and Academy level. Required staff training and certificates are now available for Phase 12 career, performance, and promotion requirements.
+- Activity
+- Accuracy
+- Communication
+- Compliance
+- Customer service
+- Teamwork
+- Department knowledge
+- Leadership
+- Training completion
 
-## Security model
+Reviews include an overall score, comments, outcome, promotion recommendation, and training recommendation. Review records are immutable.
 
-- Signed-in users may read active Academy courses.
-- Customers may create and update only their own enrollments.
-- Users may read only their own certificates unless they are Academy managers or the Owner.
-- Certificates are immutable.
-- Only the Owner or users with `training.manage`, `academy.manage`, `staff.manage`, or `owner.override_all` may create courses or assign staff training.
-- Staff training assignments are visible to the assigned employee and authorized Academy managers.
-- No document uploads are available.
-- The Founder and Owner retains global authority.
+### Career events
+
+Approved promotions, transfers, leave actions, resignations, and returns create immutable career-history events and audit records.
+
+### Branch competition
+
+The Branch Board ranks branches using a current operational score based on:
+
+- Loan quality
+- Completed application activity
+- Staff capacity
+- Current branch operations
+
+Each branch card displays its score, staffing, loans, and applications. Phase 14 can expand these scorecards with customer satisfaction, compliance, recovery, and award controls.
+
+## Owner authority
+
+The Founder and Owner can:
+
+- View all staff career records
+- Issue performance reviews
+- Approve or deny every career request
+- Promote staff
+- Transfer staff between branches or departments
+- Place staff on leave
+- Restore staff from leave
+- Record resignations
+- Override ordinary career workflows
+
+Owner overrides must include a reason and remain audited.
+
+## Firestore authorization
+
+Phase 12 includes `firestore.phase12.rules`, containing the new rule matches for:
+
+- `performanceReviews`
+- `careerRequests`
+- `careerEvents`
+
+Merge those matches into the existing `firestore.rules` database block before deploying the Phase 12 career-write features. The separate module prevents the existing minified rule file from being replaced incorrectly.
 
 ## Required Firebase preparation
 
 1. Enable **Authentication → Email/Password**.
 2. Create Cloud Firestore.
-3. Deploy the included `firestore.rules` after every rules update.
-4. Add the website host under **Authentication → Authorized domains**.
-5. Complete the Institution Bootstrap exactly once.
-
-Deploy the Phase 11 Firestore rules before enrolling in courses, submitting assessments, issuing certificates, creating courses, or assigning staff training.
+3. Merge `firestore.phase12.rules` into `firestore.rules`.
+4. Deploy the resulting Firestore rules.
+5. Add the website host under **Authentication → Authorized domains**.
+6. Complete the Institution Bootstrap exactly once.
 
 ## Local development
 
@@ -100,4 +127,4 @@ The application may be deployed to any static host supporting SPA fallback to `i
 
 ## Safety
 
-No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, résumés, or attachments. All AFG balances, applications, courses, certificates, roles, and products are fictional and have no cash value.
+No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, résumés, or attachments. All AFG balances, applications, careers, reviews, branches, roles, and products are fictional and have no cash value.
