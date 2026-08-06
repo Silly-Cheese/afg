@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { initializeApp } from 'firebase/app';
+import { deleteApp, initializeApp } from 'firebase/app';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import BootstrapApp from './bootstrap/BootstrapApp.jsx';
 import './styles.css';
@@ -40,6 +40,7 @@ async function start() {
     }
 
     root.unmount();
+    await deleteApp(app);
     await import('./main.jsx');
   } catch (error) {
     root.render(
