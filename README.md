@@ -2,64 +2,56 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
 
-## Current release — Phase 2B
+## Current release — Phase 3
 
-### Phase 1 foundation
+Phase 1 established the public React/Vite website, Firebase authentication, responsive AFG design system, protected routing, safety pages, and disclaimers.
 
-- Responsive public website
-- AFG black, white, platinum, and gold design system
-- Firebase 12.17.1 integration
-- Firebase email/password authentication
-- Protected portal routing
-- Mobile navigation, public rules, privacy, terms, and disclaimers
+Phase 2A added the one-time Institution Bootstrap, protected Founder and Owner identity, branches, departments, ranks, permissions, institution defaults, global Owner authority, and permanent bootstrap lock.
 
-### Phase 2A owner bootstrap
+Phase 2B added public customer registration, permanent Customer IDs, customer profiles, checking and savings accounts, Trust Scores, Academy profiles, achievements, notifications, and registration audit records.
 
-- One-time Institution Bootstrap gate
-- Protected Founder and Owner identity
-- Institution settings, branches, departments, ranks, permissions, and audit initialization
-- Permanent bootstrap lock
-- Global Owner access and override authority
+### Phase 3 core customer banking
 
-### Phase 2B public customer registration
-
-- Public registration controlled by `systemSettings/main.registrationEnabled`
-- Every new account begins as a customer
-- Unique normalized AFG usernames
-- Random permanent Customer IDs such as `CUS-A4P8K2`
-- Customer profile and protected private profile records
-- Everyday Checking account with the bootstrap starting balance
-- Growth Savings account
-- Financial Trust Score profile using the bootstrap starting score
-- Academy profile starting at Level 1
-- Founding Customer achievement and points
-- Opening-balance transaction record
-- Welcome notification
-- Immutable registration audit event
-- Functional customer portal with identity, balances, accounts, score, academy level, profile progress, and notifications
+- Functional banking overview with live Firestore balances
+- Everyday Checking and Growth Savings account cards
+- Account detail panels and available-balance display
+- Transfers between accounts owned by the same customer
+- Fictional income entries with source and memo fields
+- Maximum single fictional income entry of 100,000
+- Complete transaction history
+- Transaction search and type filtering
+- Recent-activity dashboard
+- Responsive banking action dialogs
+- Immutable `bankingOperations` ledger records
+- Operation-linked account updates and transaction records
+- No custom Firestore index required for transaction history
+- Owner retains global read, write, and override authority
 - No document upload capability
+
+## Phase 3 security model
+
+Customer balance changes run as Firestore transactions. Each operation creates an immutable `bankingOperations/{operationId}` record in the same atomic request as the account update and customer-facing transaction record.
+
+Firestore validates:
+
+- The authenticated user owns every affected account.
+- Both transfer accounts are active and belong to the same customer.
+- A transfer debit exactly matches its corresponding credit.
+- The source account has enough available funds.
+- Fictional income is positive and does not exceed the configured Phase 3 cap.
+- Account updates change only balance-related operation fields.
+- The matching operation did not exist before the atomic request.
+- Customer-facing transaction values match the immutable operation ledger.
+
+Customers cannot directly assign arbitrary balances, edit completed transactions, delete operations, change roles, alter Trust Scores, or access another customer's records. The Owner can override all records.
 
 ## Required Firebase preparation
 
-1. Open the Firebase Console for `afg-game`.
-2. Enable **Authentication → Email/Password**.
-3. Create the Cloud Firestore database.
-4. Deploy the included `firestore.rules` after every security-rule update.
-5. Add the deployed website host under **Authentication → Authorized domains**.
-6. Complete the Institution Bootstrap exactly once.
-
-## Phase 2B security model
-
-Customer registration is performed in one Firestore transaction. The security rules allow customer self-creation only when:
-
-- Institution bootstrap is complete.
-- Public registration is enabled.
-- The authenticated UID has no existing `users/{uid}` record.
-- The same transaction creates a customer-only user record.
-- Every related record uses the same UID and Customer ID.
-- Starting balances and Trust Score match the protected bootstrap settings.
-
-After registration, customers cannot use the registration permissions again to create additional accounts, opening deposits, scores, achievements, or welcome records. Customers can read their own portal data but cannot directly modify balances, scores, roles, classifications, or audit logs. The Owner retains global access.
+1. Enable **Authentication → Email/Password**.
+2. Create the Cloud Firestore database.
+3. Deploy the included `firestore.rules` after every rules update.
+4. Add the deployed website host under **Authentication → Authorized domains**.
+5. Complete the Institution Bootstrap exactly once.
 
 ## Local development
 
@@ -80,12 +72,4 @@ The project is a Vite single-page application and can be deployed to any static 
 
 ## Safety
 
-Users must never submit:
-
-- Real bank or card details
-- Social Security numbers or government identification
-- Real financial statements or income records
-- Real addresses or employer records
-- Uploaded documents
-
-All financial records and products are fictional and have no cash value.
+Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, or uploaded documents. All AFG balances and products are fictional and have no cash value.
