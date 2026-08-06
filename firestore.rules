@@ -6,10 +6,49 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Phase 1 is authentication-first. All application data remains locked
-    // until Phase 2 installs the customer and Owner Bootstrap data model.
+    function bootstrapPath() {
+      return /databases/$(database)/documents/system/bootstrap;
+    }
+
+    function bootstrapComplete() {
+      return exists(bootstrapPath()) && get(bootstrapPath()).data.status == 'complete';
+    }
+
+    function ownerUid() {
+      return get(bootstrapPath()).data.ownerUid;
+    }
+
+    function isOwner() {
+      return signedIn() && bootstrapComplete() && request.auth.uid == ownerUid();
+    }
+
+    // A bootstrap write is valid only when the complete bootstrap record is
+    // created in the same atomic batch and names the authenticated user as owner.
+    function isInitialBootstrap() {
+      return signedIn()
+        && !exists(bootstrapPath())
+        && getAfter(bootstrapPath()).data.status == 'complete'
+        && getAfter(bootstrapPath()).data.locked == true
+        && getAfter(bootstrapPath()).data.ownerUid == request.auth.uid;
+    }
+
+    match /system/bootstrap {
+      // Public status read is required so the application can choose between
+      // the one-time setup wizard and the normal institution website.
+      allow read: if true;
+      allow create: if isInitialBootstrap()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'complete'
+        && request.resource.data.locked == true;
+      allow update, delete: if false;
+    }
+
+    // Every other initialization record must be part of the same secure batch.
+    // After initialization, the protected Owner has global access. Phase 2B will
+    // add narrowly scoped customer self-service rules.
     match /{document=**} {
-      allow read, write: if false;
+      allow create: if isInitialBootstrap() || isOwner();
+      allow read, update, delete: if isOwner();
     }
   }
 }
