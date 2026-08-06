@@ -1,119 +1,174 @@
 # Apex Financial Group
 
-Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
+Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, property, business, or employment services.
 
-## Current release — Phase 12
+## Current release — Phase 13
 
-Earlier phases established the public website, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, the Staff Workspace, permissions, department operations, and the Apex Financial Academy.
+Earlier phases established the public website, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, the Staff Workspace, department operations, the Financial Academy, careers, branches, and performance management.
 
-## Phase 12 — Careers, Branches, and Performance
+## Phase 13 — Business, Property, Investment, and Insurance
 
-Phase 12 adds the long-term staff career and institutional management layer at `/career-center`.
+Phase 13 adds the expanded customer economy at `/economy-center`.
 
-### Career center
+### Business economy
 
-Staff can review:
+Customers can register fictional businesses with:
 
-- Permanent Staff ID
-- Current rank and position
-- Department and branch assignments
-- Probation status
-- Completed Academy certificates
-- Required training progress
-- Promotion readiness
-- Performance-review history
-- Career-request history
+- Permanent Business IDs
+- Business name and industry
+- Description
+- Home branch
+- Ownership type
+- Startup level
+- Business reputation
+- Revenue
+- Expenses
+- Cash reserves
+- Employee count
 
-### Promotion readiness
+Customers can record structured fictional revenue and expense activity. Every activity creates an immutable business-transaction record. Starting capital and individual activity amounts are capped to limit abuse.
 
-The portal evaluates four readiness categories:
+### Business progression
 
-- Required training completion
-- Probation completion
-- Performance standard
-- Clear disciplinary standing
+The data model supports these business levels:
 
-Readiness is advisory. Promotions are never granted automatically.
+- Startup
+- Developing Business
+- Established Business
+- Regional Business
+- National Enterprise
+- Institutional Partner
 
-### Career requests
+Later administrative controls can advance a business based on performance, reputation, commercial lending, and policy requirements.
 
-Staff can submit structured requests for:
+### Property system
 
-- Leave
-- Temporary inactivity
-- Branch transfer
-- Department transfer
-- Promotion
-- Resignation
-- Return from leave
+Customers can add fictional residential and commercial property records including:
 
-Requests may include a requested branch, department, or rank. Managers and the Owner can approve or deny pending requests.
+- Permanent Property ID
+- Property type
+- Purchase value
+- Current value
+- Condition
+- Rental income
+- Maintenance cost
+- Mortgage connection
+- Business ownership connection
+- Insurance status
 
-### Performance reviews
+Supported property categories include apartments, houses, farms, stores, offices, warehouses, restaurants, hotels, factories, and commercial complexes.
 
-Authorized managers can create reviews covering:
+### Investment system
 
-- Activity
-- Accuracy
-- Communication
-- Compliance
-- Customer service
-- Teamwork
-- Department knowledge
-- Leadership
-- Training completion
+Customers can purchase fictional investments from an owned AFG account.
 
-Reviews include an overall score, comments, outcome, promotion recommendation, and training recommendation. Review records are immutable.
+Launch products include:
 
-### Career events
+- AFG Institutional Bond
+- Savings Bond
+- Apex Index Fund
+- Apex Growth Fund
+- Property Fund
+- Business Enterprise Fund
 
-Approved promotions, transfers, leave actions, resignations, and returns create immutable career-history events and audit records.
+Investment purchases use an atomic transaction that:
 
-### Branch competition
+1. Verifies account ownership and available funds.
+2. Debits the selected account.
+3. Creates an investment record.
+4. Creates an immutable investment operation.
+5. Creates a customer banking transaction.
 
-The Branch Board ranks branches using a current operational score based on:
+Investment records track principal, current value, total return, risk category, status, and funding account.
 
-- Loan quality
-- Completed application activity
-- Staff capacity
-- Current branch operations
+### Insurance system
 
-Each branch card displays its score, staffing, loans, and applications. Phase 14 can expand these scorecards with customer satisfaction, compliance, recovery, and award controls.
+Customers can create fictional policies for:
+
+- Vehicle coverage
+- Property coverage
+- Business coverage
+- Income protection
+- Loan protection
+
+Policies track premium, coverage limit, deductible, status, insured asset, and effective date.
+
+### Claims
+
+Customers can submit structured claims containing:
+
+- Permanent Claim ID
+- Connected policy
+- Incident type
+- Requested amount
+- Written fictional incident description
+- Submission status
+- Reviewer assignment
+- Decision record
+
+Claim amounts cannot exceed the associated policy limit. No supporting documents or uploads are accepted.
+
+The Owner and authorized insurance managers can approve or deny claims, specify an approved amount, and record a required reason. Decisions generate audit entries, and Owner overrides are explicitly marked.
+
+## Economy overview
+
+The portal calculates a fictional portfolio summary containing:
+
+- Customer account balances
+- Business reserves
+- Property values
+- Investment values
+- Insurance coverage
+- Open claims
+- Estimated fictional net worth
+
+All values are fictional and have no cash value.
 
 ## Owner authority
 
-The Founder and Owner can:
+The Founder and Owner retains full authority over:
 
-- View all staff career records
-- Issue performance reviews
-- Approve or deny every career request
-- Promote staff
-- Transfer staff between branches or departments
-- Place staff on leave
-- Restore staff from leave
-- Record resignations
-- Override ordinary career workflows
+- Businesses
+- Business activity
+- Properties
+- Investment records
+- Investment values
+- Insurance policies
+- Claims
+- Claim decisions
+- Economy permissions
+- Corrections and overrides
 
-Owner overrides must include a reason and remain audited.
+Privileged claim decisions remain audited.
 
 ## Firestore authorization
 
-Phase 12 includes `firestore.phase12.rules`, containing the new rule matches for:
+Phase 13 includes `firestore.phase13.rules`, containing:
 
-- `performanceReviews`
-- `careerRequests`
-- `careerEvents`
+- Economy-manager permission helpers
+- Business rules
+- Immutable business-transaction rules
+- Property rules
+- Investment rules
+- Immutable investment-operation rules
+- Insurance-policy rules
+- Insurance-claim rules
+- The required account-update extension for investment debits
 
-Merge those matches into the existing `firestore.rules` database block before deploying the Phase 12 career-write features. The separate module prevents the existing minified rule file from being replaced incorrectly.
+Phase 12 also retains `firestore.phase12.rules` for careers and performance.
+
+Merge both phase modules into the existing `firestore.rules` database block before deploying. The separate modules prevent accidental replacement of the existing minified security-rule file.
 
 ## Required Firebase preparation
 
 1. Enable **Authentication → Email/Password**.
 2. Create Cloud Firestore.
-3. Merge `firestore.phase12.rules` into `firestore.rules`.
-4. Deploy the resulting Firestore rules.
-5. Add the website host under **Authentication → Authorized domains**.
-6. Complete the Institution Bootstrap exactly once.
+3. Merge `firestore.phase12.rules` into `firestore.rules` if not already completed.
+4. Merge `firestore.phase13.rules` into `firestore.rules`.
+5. Extend the existing account update rule as directed in the Phase 13 module.
+6. Deploy the resulting Firestore rules.
+7. Add the website host under **Authentication → Authorized domains**.
+8. Complete the Institution Bootstrap exactly once.
 
 ## Local development
 
@@ -127,4 +182,4 @@ The application may be deployed to any static host supporting SPA fallback to `i
 
 ## Safety
 
-No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, résumés, or attachments. All AFG balances, applications, careers, reviews, branches, roles, and products are fictional and have no cash value.
+No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, property records, insurance documents, résumés, or attachments. All AFG balances, businesses, properties, investments, insurance policies, claims, careers, and products are fictional and have no cash value.
