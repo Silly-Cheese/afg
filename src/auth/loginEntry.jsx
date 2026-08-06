@@ -35,13 +35,9 @@ async function resolveCredential(value) {
 
   if (alias.data()?.authEmail) return alias.data().authEmail;
 
-  // Phase 2A owner accounts use a deterministic internal Firebase email.
-  // Older ordinary customer records without authEmail must use their email once.
-  if (alias.data()?.customerId === 'CUS-OWNER' || alias.data()?.staffId === 'STF-000001') {
-    return `${username}@users.afg-game.local`;
-  }
-
-  throw new Error('This older account must sign in once using its email address.');
+  // Phase 2A created the protected Owner alias before authEmail was added to
+  // username records. Its Firebase email is deterministic from the username.
+  return `${username}@users.afg-game.local`;
 }
 
 function LoginPage() {
