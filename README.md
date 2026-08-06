@@ -2,173 +2,147 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, property, business, or employment services.
 
-## Current release — Phase 13
+## Current release — Phase 14
 
-Earlier phases established the public website, Owner Bootstrap, customer identities, banking, progression, applications, lending, loan servicing, staff hiring, the Staff Workspace, department operations, the Financial Academy, careers, branches, and performance management.
+All fourteen planned development phases are now represented in the repository.
 
-## Phase 13 — Business, Property, Investment, and Insurance
+## Phase 14 — Administration, Economy, Overrides, and Final Polish
 
-Phase 13 adds the expanded customer economy at `/economy-center`.
+Phase 14 adds the protected Founder and Owner administration layer at `/owner-control`.
 
-### Business economy
+### Owner Control Center
 
-Customers can register fictional businesses with:
+The Founder and Owner can review institution-wide totals for:
 
-- Permanent Business IDs
-- Business name and industry
-- Description
-- Home branch
-- Ownership type
-- Startup level
-- Business reputation
-- Revenue
-- Expenses
-- Cash reserves
-- Employee count
-
-Customers can record structured fictional revenue and expense activity. Every activity creates an immutable business-transaction record. Starting capital and individual activity amounts are capped to limit abuse.
-
-### Business progression
-
-The data model supports these business levels:
-
-- Startup
-- Developing Business
-- Established Business
-- Regional Business
-- National Enterprise
-- Institutional Partner
-
-Later administrative controls can advance a business based on performance, reputation, commercial lending, and policy requirements.
-
-### Property system
-
-Customers can add fictional residential and commercial property records including:
-
-- Permanent Property ID
-- Property type
-- Purchase value
-- Current value
-- Condition
-- Rental income
-- Maintenance cost
-- Mortgage connection
-- Business ownership connection
-- Insurance status
-
-Supported property categories include apartments, houses, farms, stores, offices, warehouses, restaurants, hotels, factories, and commercial complexes.
-
-### Investment system
-
-Customers can purchase fictional investments from an owned AFG account.
-
-Launch products include:
-
-- AFG Institutional Bond
-- Savings Bond
-- Apex Index Fund
-- Apex Growth Fund
-- Property Fund
-- Business Enterprise Fund
-
-Investment purchases use an atomic transaction that:
-
-1. Verifies account ownership and available funds.
-2. Debits the selected account.
-3. Creates an investment record.
-4. Creates an immutable investment operation.
-5. Creates a customer banking transaction.
-
-Investment records track principal, current value, total return, risk category, status, and funding account.
-
-### Insurance system
-
-Customers can create fictional policies for:
-
-- Vehicle coverage
-- Property coverage
-- Business coverage
-- Income protection
-- Loan protection
-
-Policies track premium, coverage limit, deductible, status, insured asset, and effective date.
-
-### Claims
-
-Customers can submit structured claims containing:
-
-- Permanent Claim ID
-- Connected policy
-- Incident type
-- Requested amount
-- Written fictional incident description
-- Submission status
-- Reviewer assignment
-- Decision record
-
-Claim amounts cannot exceed the associated policy limit. No supporting documents or uploads are accepted.
-
-The Owner and authorized insurance managers can approve or deny claims, specify an approved amount, and record a required reason. Decisions generate audit entries, and Owner overrides are explicitly marked.
-
-## Economy overview
-
-The portal calculates a fictional portfolio summary containing:
-
-- Customer account balances
-- Business reserves
-- Property values
-- Investment values
-- Insurance coverage
-- Open claims
-- Estimated fictional net worth
-
-All values are fictional and have no cash value.
-
-## Owner authority
-
-The Founder and Owner retains full authority over:
-
+- Customers
+- Staff
+- Applications
+- Active loans
 - Businesses
-- Business activity
 - Properties
-- Investment records
-- Investment values
-- Insurance policies
-- Claims
-- Claim decisions
-- Economy permissions
-- Corrections and overrides
+- Investments
+- Insurance claims
+- Branches
+- Departments
+- Audit records
+- Owner overrides
 
-Privileged claim decisions remain audited.
+The control center also links directly to every major portal built in earlier phases.
+
+### System controls
+
+The Owner can control:
+
+- Public registration
+- Maintenance mode
+- Public verification availability
+- Institution-news availability
+
+Every saved system-control change creates an immutable audit record.
+
+### Economy controls
+
+The Owner can publish institution-wide settings for:
+
+- Economic climate
+- Base interest rate
+- Inflation rate
+- Property-value modifier
+- Investment-performance modifier
+- Business-performance modifier
+- Loan availability
+
+Supported climates include stable growth, rapid growth, inflation, recession, housing changes, credit tightening, business expansion, and investment surges.
+
+### Institution events
+
+The Owner can create events containing:
+
+- Permanent Event ID
+- Title
+- Description
+- Event category
+- Start and end times
+- Status
+- Optional modifier type and value
+
+These records provide the foundation for savings challenges, business months, financial-literacy events, branch competitions, and economy storylines.
+
+### Achievement builder
+
+The Owner can create achievements containing:
+
+- Permanent Achievement ID
+- Name
+- Description
+- Customer or staff category
+- Point value
+- Badge identifier
+- Active status
+
+### Verification center
+
+The Owner Control Center can verify exact Customer, Staff, and Business IDs and search institution-facing names. The lookup returns only limited identity and status information.
+
+### Global override ledger
+
+The Owner can record an override containing:
+
+- Permanent Override ID
+- Target collection
+- Target record ID
+- Field changed
+- Previous value
+- Replacement value
+- Required written reason
+- Owner UID
+- Immutable timestamp
+
+Owner override records and their matching audit entries cannot be edited or deleted through ordinary workflows.
+
+## Final system structure
+
+AFG now contains:
+
+1. Public website and Firebase foundation
+2. Owner Bootstrap
+3. Customer identities and banking
+4. Financial Trust Score and progression
+5. Reusable applications
+6. Lending and underwriting
+7. Loan servicing and collections
+8. Staff applications and appointments
+9. Staff Workspace and permissions
+10. Department operations
+11. Apex Financial Academy
+12. Careers, branches, and performance
+13. Businesses, properties, investments, and insurance
+14. Owner administration, economy controls, events, achievements, verification, and overrides
 
 ## Firestore authorization
 
-Phase 13 includes `firestore.phase13.rules`, containing:
+The repository includes modular rule additions:
 
-- Economy-manager permission helpers
-- Business rules
-- Immutable business-transaction rules
-- Property rules
-- Investment rules
-- Immutable investment-operation rules
-- Insurance-policy rules
-- Insurance-claim rules
-- The required account-update extension for investment debits
+- `firestore.phase12.rules`
+- `firestore.phase13.rules`
+- `firestore.phase14.rules`
 
-Phase 12 also retains `firestore.phase12.rules` for careers and performance.
+Merge them into the original `firestore.rules` database match block in that order. Phase 13 also requires the documented account-update extension for atomic investment debits.
 
-Merge both phase modules into the existing `firestore.rules` database block before deploying. The separate modules prevent accidental replacement of the existing minified security-rule file.
+Do not deploy a phase module by itself. Deploy only a complete Firestore rules document.
+
+See `FINAL_DEPLOYMENT.md` for the complete production checklist.
 
 ## Required Firebase preparation
 
-1. Enable **Authentication → Email/Password**.
+1. Enable Authentication → Email/Password.
 2. Create Cloud Firestore.
-3. Merge `firestore.phase12.rules` into `firestore.rules` if not already completed.
-4. Merge `firestore.phase13.rules` into `firestore.rules`.
-5. Extend the existing account update rule as directed in the Phase 13 module.
-6. Deploy the resulting Firestore rules.
-7. Add the website host under **Authentication → Authorized domains**.
-8. Complete the Institution Bootstrap exactly once.
+3. Merge the Phase 12, 13, and 14 rule modules into `firestore.rules`.
+4. Apply the Phase 13 account-update extension.
+5. Deploy the completed Firestore rules.
+6. Add the website host under Authentication → Authorized domains.
+7. Complete the Institution Bootstrap exactly once.
+8. Verify `/owner-control` using the protected Founder and Owner account.
 
 ## Local development
 
@@ -182,4 +156,4 @@ The application may be deployed to any static host supporting SPA fallback to `i
 
 ## Safety
 
-No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, property records, insurance documents, résumés, or attachments. All AFG balances, businesses, properties, investments, insurance policies, claims, careers, and products are fictional and have no cash value.
+No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, real income records, property records, insurance documents, résumés, or attachments. All AFG balances, applications, careers, businesses, properties, investments, insurance records, events, achievements, and products are fictional and have no cash value.
