@@ -61,7 +61,7 @@ export async function createCustomerIdentity(db, authUser, form, defaults) {
   const customerId = createCustomerId();
   const checkingId = createAccountId('CHK');
   const savingsId = createAccountId('SVG');
-  const initialBalance = Number(defaults?.startingBalance ?? 2500);
+  const initialBalance = Number(defaults?.startingCustomerBalance ?? 2500);
   const startingTrustScore = Number(defaults?.startingTrustScore ?? 600);
   const currencyName = defaults?.currencyName || 'AFG Dollar';
   const currencySymbol = defaults?.currencySymbol || '$';
@@ -119,13 +119,7 @@ export async function createCustomerIdentity(db, authUser, form, defaults) {
       uid,
       customerId,
       email: authUser.email,
-      fictionalProfile: {
-        legalName: '',
-        birthDate: '',
-        occupation: '',
-        monthlyIncome: null,
-        address: '',
-      },
+      fictionalProfile: { legalName: '', birthDate: '', occupation: '', monthlyIncome: null, address: '' },
       agreements: {
         fictionalInformationOnly: true,
         communityRules: true,
@@ -230,7 +224,6 @@ export async function loadCustomerPortal(db, uid) {
     getDocs(query(collection(db, 'accounts'), where('ownerUid', '==', uid))),
     getDocs(query(collection(db, 'notifications'), where('recipientUid', '==', uid), limit(8))),
   ]);
-
   return {
     user: userSnap.exists() ? userSnap.data() : null,
     profile: profileSnap.exists() ? profileSnap.data() : null,
