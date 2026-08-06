@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import LendingPage from'./LendingPage.jsx';createRoot(document.getElementById('root')).render(<React.StrictMode><LendingPage/></React.StrictMode>);
