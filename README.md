@@ -2,68 +2,47 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
 
-## Current release — Phase 6
+## Current release — Phase 7
 
-Earlier phases established the public website, Firebase authentication, Owner Bootstrap, customer identities, banking, progression, and the reusable application framework.
+Earlier phases established the public website, Firebase authentication, Owner Bootstrap, customer identities, banking, progression, applications, lending, underwriting, decisions, and approved offers.
 
-### Phase 6 lending and underwriting
+### Phase 7 loans, payments, and collections
 
-- Dedicated `/lending` staff workspace
-- Permission-aware lending access with immediate protected Owner access
-- Financial application queue with open, closed, and complete filters
-- Application claiming and reviewer assignment
-- Applicant response review
-- Financial-capacity and debt-to-income analysis
-- Trust Score review field
-- Risk ratings
-- Collateral assessment
-- Policy-exception notes
-- Additional-information requests
-- Underwriting recommendations
-- Recommended amount, term, interest rate, conditions, and rationale
-- Final approval or denial workflow
-- Customer-facing decision letters
-- Approved-offer terms and expiration fields
-- Customer acceptance or decline
-- Pending loan record creation after acceptance
-- Immutable lending decision records
-- Immutable audit entries
-- Explicit Owner override decisions
+- Dedicated `/loans` Loan Center
+- Customer loan portfolio and servicing summaries
+- Staff and Owner servicing queue
+- Activation of accepted pending loans
+- Amortized monthly payment calculation
+- Payment amount, next due date, payments remaining, and total-paid fields
+- Customer payments from owned AFG accounts
+- Atomic account debit and principal reduction
+- Immutable loan operations and payment records
+- Customer-facing banking transaction records
+- Automatic paid-loan closure when principal reaches zero
+- Extension requests
+- Restructuring requests
+- Settlement-review requests
+- Staff extensions, restructures, settlement offers, delinquency stages, forgiveness, and restoration
+- Delinquency stages and servicing statuses
+- Immutable loan events and audit records
+- Explicit Owner override marking and reasons
+- Responsive customer and staff interfaces
 
-### Financial products
+## Loan lifecycle
 
-- Personal Loan
-- Emergency Loan
-- Vehicle Financing
-- Home Mortgage
-- Student Loan
-- Business Startup Loan
-- Business Expansion Loan
-- Equipment Loan
-- Commercial Property Loan
-- Debt Consolidation Loan
-
-Staff applications remain part of the shared Phase 5 application engine and will receive their full HR workflow in Phase 8.
-
-## Lending statuses
-
-Financial applications can move through Draft, Submitted, Initial Review, Assigned, Information Requested, Department Review, Final Review, Approved, Denied, Accepted, Offer Declined, Withdrawn, and Expired.
-
-## Customer experience
-
-Customers can review staff messages, follow the complete application timeline, read a generated decision letter, inspect approved amount, term, interest rate, and conditions, then accept or decline an approved offer. Acceptance atomically creates a loan with `pending-activation` status for Phase 7 servicing.
+Accepted offers begin as `pending-activation`. Authorized servicing staff or the Owner activate the loan, which creates the payment amount and first due date. Active loans can receive customer payments. Loans may move through Current, Extended, Restructured, Settlement Offered, Delinquent, Paid, or Forgiven servicing states.
 
 ## Security model
 
-- Customers may read only their own applications and lending decisions.
-- Customers cannot edit underwriting analysis, reviewer assignment, recommendations, terms, internal notes, or decision letters.
-- A customer may only accept or decline an application already marked Approved.
-- Offer response changes are limited to status, response metadata, timestamp, and timeline.
-- The pending loan must match the approved application amount and authenticated applicant.
-- Authorized lending staff may access only financial applications.
-- Lending decisions and audit entries are immutable.
-- Owner overrides must be explicitly marked and reasoned.
-- The Founder and Owner retains global authority.
+- Customers can read only their own loans, payments, operations, and servicing events.
+- Payments must debit an account owned by the same customer.
+- The payment amount cannot exceed the source account's available balance or the remaining principal.
+- The account debit, loan principal reduction, immutable loan operation, payment record, and customer transaction are committed atomically.
+- Customers may modify only payment fields linked to a new immutable loan operation or submit a pending assistance request.
+- Servicing and collections actions require Owner authority or protected loan/collections permissions.
+- Servicing events and audit entries cannot be edited or deleted.
+- Owner overrides must be marked and include a written reason.
+- The Founder and Owner retains global authority over all loan records and workflows.
 
 ## Required Firebase preparation
 
@@ -73,7 +52,7 @@ Customers can review staff messages, follow the complete application timeline, r
 4. Add the website host under **Authentication → Authorized domains**.
 5. Complete the Institution Bootstrap exactly once.
 
-Deploy the Phase 6 Firestore rules before using `/lending`, issuing decisions, or accepting offers.
+Deploy the Phase 7 Firestore rules before activating loans, accepting payments, or using servicing actions.
 
 ## Local development
 
@@ -87,4 +66,4 @@ The application may be deployed to any static host supporting SPA fallback to `i
 
 ## Safety
 
-No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, or real income records. All AFG balances, applications, scores, decisions, loans, and products are fictional and have no cash value.
+No document uploads are available. Users must never submit real bank details, card details, government identification, financial statements, real addresses, real employers, or real income records. All AFG balances, applications, scores, decisions, loans, payments, and products are fictional and have no cash value.
