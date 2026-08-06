@@ -23,17 +23,26 @@ function LoadingScreen() {
   return <main className="bootstrap-loading"><div className="bootstrap-spinner"/><strong>Apex Financial Group</strong><span>Checking institution status…</span></main>;
 }
 
-function installProgressionNavigation() {
+function installPortalNavigation() {
   const inject = () => {
     const nav = document.querySelector('.portal-sidebar nav');
-    if (!nav || nav.querySelector('[data-phase4-link]')) return;
-    const link = document.createElement('a');
-    link.href = '/progression';
-    link.dataset.phase4Link = 'true';
-    link.className = 'portal-phase4-link';
-    link.innerHTML = '<span aria-hidden="true">★</span> Progression & Trust';
-    const customerGroup = Array.from(nav.querySelectorAll('.portal-group')).find(item => item.textContent?.trim() === 'CUSTOMER');
-    if (customerGroup) customerGroup.insertAdjacentElement('afterend', link); else nav.appendChild(link);
+    if (!nav) return;
+    if (!nav.querySelector('[data-phase5-link]')) {
+      const link = document.createElement('a');
+      link.href = '/applications';
+      link.dataset.phase5Link = 'true';
+      link.innerHTML = '<span aria-hidden="true">▤</span> Applications';
+      const customerGroup = Array.from(nav.querySelectorAll('.portal-group')).find(item => item.textContent?.trim() === 'CUSTOMER');
+      if (customerGroup) customerGroup.insertAdjacentElement('afterend', link); else nav.appendChild(link);
+    }
+    if (!nav.querySelector('[data-phase4-link]')) {
+      const link = document.createElement('a');
+      link.href = '/progression';
+      link.dataset.phase4Link = 'true';
+      link.innerHTML = '<span aria-hidden="true">★</span> Progression & Trust';
+      const customerGroup = Array.from(nav.querySelectorAll('.portal-group')).find(item => item.textContent?.trim() === 'CUSTOMER');
+      if (customerGroup) customerGroup.insertAdjacentElement('afterend', link); else nav.appendChild(link);
+    }
   };
   inject();
   const observer = new MutationObserver(inject);
@@ -54,8 +63,12 @@ async function start() {
       await import('./progression/progressionEntry.jsx');
       return;
     }
+    if (window.location.pathname === '/applications') {
+      await import('./applications/applicationEntry.jsx');
+      return;
+    }
     await import('./main.jsx');
-    installProgressionNavigation();
+    installPortalNavigation();
   } catch (error) {
     root.render(<main className="bootstrap-loading bootstrap-error-screen"><strong>Institution status unavailable</strong><span>{error?.message || 'The bootstrap status could not be checked.'}</span><button className="button button-gold" type="button" onClick={() => window.location.reload()}>Try again</button></main>);
   }
