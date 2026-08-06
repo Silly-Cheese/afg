@@ -111,25 +111,29 @@ export async function respondToOffer(db,id,uid,response){
     const loanSnap=await tx.get(loanRef);
     tx.update(ref,{status:accepted?'accepted':'offer-declined',customerResponse:{response:accepted?'accepted':'declined',respondedAt:stamp()},updatedAt:serverTimestamp(),timeline:[...(data.timeline||[]),event(accepted?'accepted':'offer-declined',accepted?'Customer accepted approved terms':'Customer declined approved terms','customer',uid)]});
     const terms=data.approvedTerms||{};
-    const baseLoan={
-      loanId:data.registeredLoanId||registeredLoanId(data.applicationId),
-      applicationId:data.applicationId,
-      applicationDocId:id,
-      ownerUid:uid,
-      customerId:data.customerId,
-      productType:data.applicationType||'approved-financing',
-      productName:productName(data),
-      originalPrincipal:Number(terms.approvedAmount||0),
-      remainingPrincipal:Number(terms.approvedAmount||0),
-      interestRate:Number(terms.interestRate||0),
-      termMonths:Number(terms.termMonths||0),
-      paymentFrequency:terms.paymentFrequency||'monthly',
-      updatedAt:serverTimestamp()
-    };
-    if(accepted){
-      tx.set(loanRef,{...baseLoan,status:'pending-activation',servicingStatus:'awaiting-activation',customerAcceptanceStatus:'accepted',acceptedAt:serverTimestamp(),createdAt:loanSnap.exists()?loanSnap.data().createdAt:serverTimestamp()},{merge:true});
+    if(accepted&&loanSnap.exists()){
+      tx.update(loanRef,{status:'pending-activation',servicingStatus:'awaiting-activation',updatedAt:serverTimestamp()});
+    }else if(accepted){
+      tx.set(loanRef,{
+        loanId:data.registeredLoanId||registeredLoanId(data.applicationId),
+        applicationId:data.applicationId,
+        applicationDocId:id,
+        ownerUid:uid,
+        customerId:data.customerId,
+        productType:data.applicationType||'approved-financing',
+        productName:productName(data),
+        originalPrincipal:Number(terms.approvedAmount||0),
+        remainingPrincipal:Number(terms.approvedAmount||0),
+        interestRate:Number(terms.interestRate||0),
+        termMonths:Number(terms.termMonths||0),
+        paymentFrequency:terms.paymentFrequency||'monthly',
+        status:'pending-activation',
+        servicingStatus:'awaiting-activation',
+        createdAt:serverTimestamp(),
+        updatedAt:serverTimestamp()
+      });
     }else if(loanSnap.exists()){
-      tx.update(loanRef,{status:'cancelled',servicingStatus:'offer-declined',customerAcceptanceStatus:'declined',declinedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      tx.update(loanRef,{status:'cancelled',servicingStatus:'offer-declined',updatedAt:serverTimestamp()});
     }
   });
 }
