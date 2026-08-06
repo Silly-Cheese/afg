@@ -31,12 +31,17 @@ async function resolveCredential(value) {
   if (username.length < 3) throw new Error('Enter a valid AFG username or email address.');
 
   const alias = await getDoc(doc(db, 'usernames', username));
-  if (!alias.exists()) throw new Error('That AFG username was not found.');
+  if (!alias.exists()) throw new Error('That AFG username does not exist.');
+
   if (alias.data()?.authEmail) return alias.data().authEmail;
 
-  // Accounts created by the original Owner Bootstrap use this deterministic
-  // internal Firebase email. This keeps the real sign-in experience username-only.
-  return `${username}@users.afg-game.local`;
+  // Phase 2A owner accounts use a deterministic internal Firebase email.
+  // Older ordinary customer records without authEmail must use their email once.
+  if (alias.data()?.customerId === 'CUS-OWNER' || alias.data()?.staffId === 'STF-000001') {
+    return `${username}@users.afg-game.local`;
+  }
+
+  throw new Error('This older account must sign in once using its email address.');
 }
 
 function LoginPage() {
@@ -61,7 +66,7 @@ function LoginPage() {
       const known = {
         'auth/invalid-credential': 'The username/email or password is incorrect.',
         'auth/too-many-requests': 'Too many attempts. Wait briefly and try again.',
-        'permission-denied': 'Firestore rules are blocking username lookup. Deploy the consolidated rules file.',
+        'permission-denied': 'Firestore is blocking username lookup. Publish the repository’s complete firestore.rules file.',
       };
       setError(known[loginError?.code] || loginError?.message || 'Sign-in failed.');
     } finally {
@@ -90,16 +95,29 @@ function LoginPage() {
           <a className="afg-login-return" href={pageUrl('/')}><ArrowLeft /> Return to website</a>
           <span className="afg-login-kicker">CUSTOMER & STAFF SIGN IN</span>
           <h2>Access your account</h2>
-          <p>Enter the username selected during registration or Institution Bootstrap.</p>
+          <p>Enter the username chosen when your AFG identity was created.</p>
           {error && <div className="form-alert">{error}</div>}
           <form onSubmit={submit}>
             <label>
               AFG username or email
-              <input type="text" autoComplete="username" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Executive_Eagle" required />
+              <input
+                type="text"
+                autoComplete="username"
+                value={credential}
+                onChange={(event) => setCredential(event.target.value)}
+                placeholder="Executive_Eagle"
+                required
+              />
             </label>
             <label>
               Password
-              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
             </label>
             <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
