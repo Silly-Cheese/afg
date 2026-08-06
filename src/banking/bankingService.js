@@ -1,7 +1,8 @@
-import { collection, doc, getDocs, orderBy, query, runTransaction, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from 'firebase/firestore';
 
 function makeId(prefix){const values=new Uint32Array(8);crypto.getRandomValues(values);return `${prefix}-${Array.from(values,value=>value.toString(36).slice(-1)).join('').toUpperCase()}`}
-export async function loadBankingData(db,uid){const[accountsSnap,transactionsSnap]=await Promise.all([getDocs(query(collection(db,'accounts'),where('ownerUid','==',uid))),getDocs(query(collection(db,'transactions'),where('ownerUid','==',uid),orderBy('createdAt','desc')))]);return{accounts:accountsSnap.docs.map(item=>({id:item.id,...item.data()})),transactions:transactionsSnap.docs.map(item=>({id:item.id,...item.data()}))}}
+function timestampValue(value){return value?.toMillis?value.toMillis():0}
+export async function loadBankingData(db,uid){const[accountsSnap,transactionsSnap]=await Promise.all([getDocs(query(collection(db,'accounts'),where('ownerUid','==',uid))),getDocs(query(collection(db,'transactions'),where('ownerUid','==',uid)))]);return{accounts:accountsSnap.docs.map(item=>({id:item.id,...item.data()})),transactions:transactionsSnap.docs.map(item=>({id:item.id,...item.data()})).sort((a,b)=>timestampValue(b.createdAt)-timestampValue(a.createdAt))}}
 
 export async function transferBetweenAccounts(db,uid,customerId,fromId,toId,amount,memo=''){
   const numericAmount=Number(amount);if(!Number.isFinite(numericAmount)||numericAmount<=0)throw new Error('Enter a transfer amount greater than zero.');if(fromId===toId)throw new Error('Choose two different accounts.');
