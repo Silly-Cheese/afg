@@ -80,7 +80,7 @@ service cloud.firestore {
         && request.resource.data.availableBalance == request.resource.data.balance
         && ((request.resource.data.type == 'checking'
           && request.resource.data.productName == 'Everyday Checking'
-          && request.resource.data.balance == get(settingsPath()).data.startingBalance)
+          && request.resource.data.balance == get(settingsPath()).data.startingCustomerBalance)
           || (request.resource.data.type == 'savings'
           && request.resource.data.productName == 'Growth Savings'
           && request.resource.data.balance == 0)));
@@ -117,7 +117,7 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid && validCustomerId(request.resource.data.customerId)
         && request.resource.data.type == 'opening_deposit' && request.resource.data.direction == 'credit'
         && request.resource.data.status == 'completed'
-        && request.resource.data.amount == get(settingsPath()).data.startingBalance);
+        && request.resource.data.amount == get(settingsPath()).data.startingCustomerBalance);
       allow update, delete: if isOwner();
     }
 
