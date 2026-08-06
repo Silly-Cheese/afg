@@ -40,3 +40,7 @@ export async function completeDepartmentWorkItem(db,id,uid){
  if(item.conflictRestricted)throw new Error('This work item is blocked by a conflict of interest.');
  await updateDoc(ref,{status:'completed',completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
 }
+export async function updateDepartmentWorkItem(db,id,uid,status){
+ if(status!=='completed')throw new Error('Work items remain assigned until they are completed.');
+ return completeDepartmentWorkItem(db,id,uid);
+}
