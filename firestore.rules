@@ -16,63 +16,11 @@ service cloud.firestore {
     function newCustomerBatch(){return registrationOpen()&&signedIn()&&!exists(userPath(request.auth.uid))&&ownCustomerCreatedAfter();}
     function validCustomerId(id){return id==getAfter(userPath(request.auth.uid)).data.customerId;}
     function operationAfter(id){return getAfter(operationPath(id)).data;}
-    function validAccountUpdate(accountId){
-      let op=operationAfter(request.resource.data.lastOperationId);
-      return signedIn()
-        && resource.data.ownerUid==request.auth.uid
-        && request.resource.data.ownerUid==resource.data.ownerUid
-        && request.resource.data.customerId==resource.data.customerId
-        && request.resource.data.type==resource.data.type
-        && request.resource.data.productName==resource.data.productName
-        && request.resource.data.status==resource.data.status
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance','availableBalance','lastOperationId','updatedAt'])
-        && !exists(operationPath(request.resource.data.lastOperationId))
-        && getAfter(operationPath(request.resource.data.lastOperationId)).data.ownerUid==request.auth.uid
-        && ((op.type=='fictional_income'&&op.accountId==accountId
-          && request.resource.data.balance==resource.data.balance+op.amount
-          && request.resource.data.availableBalance==resource.data.availableBalance+op.amount)
-        || (op.type=='internal_transfer'&&op.fromAccountId==accountId
-          && request.resource.data.balance==resource.data.balance-op.amount
-          && request.resource.data.availableBalance==resource.data.availableBalance-op.amount)
-        || (op.type=='internal_transfer'&&op.toAccountId==accountId
-          && request.resource.data.balance==resource.data.balance+op.amount
-          && request.resource.data.availableBalance==resource.data.availableBalance+op.amount));
-    }
-    function validIncomeOperation(){
-      let account=get(accountPath(request.resource.data.accountId)).data;
-      let afterAccount=getAfter(accountPath(request.resource.data.accountId)).data;
-      return request.resource.data.ownerUid==request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.type=='fictional_income'
-        && request.resource.data.amount>0&&request.resource.data.amount<=100000
-        && request.resource.data.source is string&&request.resource.data.source.size()>=2
-        && request.resource.data.status=='completed'&&request.resource.data.immutable==true
-        && account.ownerUid==request.auth.uid&&account.status=='active'
-        && afterAccount.lastOperationId==request.resource.data.operationId
-        && afterAccount.balance==account.balance+request.resource.data.amount
-        && afterAccount.availableBalance==account.availableBalance+request.resource.data.amount;
-    }
-    function validTransferOperation(){
-      let from=get(accountPath(request.resource.data.fromAccountId)).data;
-      let to=get(accountPath(request.resource.data.toAccountId)).data;
-      let afterFrom=getAfter(accountPath(request.resource.data.fromAccountId)).data;
-      let afterTo=getAfter(accountPath(request.resource.data.toAccountId)).data;
-      return request.resource.data.ownerUid==request.auth.uid
-        && validCustomerId(request.resource.data.customerId)
-        && request.resource.data.type=='internal_transfer'
-        && request.resource.data.fromAccountId!=request.resource.data.toAccountId
-        && request.resource.data.amount>0
-        && request.resource.data.status=='completed'&&request.resource.data.immutable==true
-        && from.ownerUid==request.auth.uid&&to.ownerUid==request.auth.uid
-        && from.status=='active'&&to.status=='active'
-        && from.availableBalance>=request.resource.data.amount
-        && afterFrom.lastOperationId==request.resource.data.operationId
-        && afterTo.lastOperationId==request.resource.data.operationId
-        && afterFrom.balance==from.balance-request.resource.data.amount
-        && afterFrom.availableBalance==from.availableBalance-request.resource.data.amount
-        && afterTo.balance==to.balance+request.resource.data.amount
-        && afterTo.availableBalance==to.availableBalance+request.resource.data.amount;
-    }
+    function validAccountUpdate(accountId){let op=operationAfter(request.resource.data.lastOperationId);return signedIn()&&resource.data.ownerUid==request.auth.uid&&request.resource.data.ownerUid==resource.data.ownerUid&&request.resource.data.customerId==resource.data.customerId&&request.resource.data.type==resource.data.type&&request.resource.data.productName==resource.data.productName&&request.resource.data.status==resource.data.status&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance','availableBalance','lastOperationId','updatedAt'])&&!exists(operationPath(request.resource.data.lastOperationId))&&getAfter(operationPath(request.resource.data.lastOperationId)).data.ownerUid==request.auth.uid&&((op.type=='fictional_income'&&op.accountId==accountId&&request.resource.data.balance==resource.data.balance+op.amount&&request.resource.data.availableBalance==resource.data.availableBalance+op.amount)||(op.type=='internal_transfer'&&op.fromAccountId==accountId&&request.resource.data.balance==resource.data.balance-op.amount&&request.resource.data.availableBalance==resource.data.availableBalance-op.amount)||(op.type=='internal_transfer'&&op.toAccountId==accountId&&request.resource.data.balance==resource.data.balance+op.amount&&request.resource.data.availableBalance==resource.data.availableBalance+op.amount));}
+    function validIncomeOperation(){let account=get(accountPath(request.resource.data.accountId)).data;let afterAccount=getAfter(accountPath(request.resource.data.accountId)).data;return request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.type=='fictional_income'&&request.resource.data.amount>0&&request.resource.data.amount<=100000&&request.resource.data.source is string&&request.resource.data.source.size()>=2&&request.resource.data.status=='completed'&&request.resource.data.immutable==true&&account.ownerUid==request.auth.uid&&account.status=='active'&&afterAccount.lastOperationId==request.resource.data.operationId&&afterAccount.balance==account.balance+request.resource.data.amount&&afterAccount.availableBalance==account.availableBalance+request.resource.data.amount;}
+    function validTransferOperation(){let from=get(accountPath(request.resource.data.fromAccountId)).data;let to=get(accountPath(request.resource.data.toAccountId)).data;let afterFrom=getAfter(accountPath(request.resource.data.fromAccountId)).data;let afterTo=getAfter(accountPath(request.resource.data.toAccountId)).data;return request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.type=='internal_transfer'&&request.resource.data.fromAccountId!=request.resource.data.toAccountId&&request.resource.data.amount>0&&request.resource.data.status=='completed'&&request.resource.data.immutable==true&&from.ownerUid==request.auth.uid&&to.ownerUid==request.auth.uid&&from.status=='active'&&to.status=='active'&&from.availableBalance>=request.resource.data.amount&&afterFrom.lastOperationId==request.resource.data.operationId&&afterTo.lastOperationId==request.resource.data.operationId&&afterFrom.balance==from.balance-request.resource.data.amount&&afterFrom.availableBalance==from.availableBalance-request.resource.data.amount&&afterTo.balance==to.balance+request.resource.data.amount&&afterTo.availableBalance==to.availableBalance+request.resource.data.amount;}
+    function validApplicationType(value){return value in ['personal-loan','vehicle-financing','mortgage','business-financing','staff-application'];}
+    function customerApplicationFields(){return ['applicationId','applicantUid','customerId','applicationType','applicationName','category','status','currentStep','responses','applicantMessages','timeline','assignedReviewerUid','internalNotesCount','uploadsAllowed','createdAt','updatedAt','submittedAt','withdrawnAt'];}
 
     match /system/bootstrap {allow read:if true;allow create:if isInitialBootstrap()&&request.resource.data.ownerUid==request.auth.uid&&request.resource.data.status=='complete'&&request.resource.data.locked==true;allow update,delete:if false;}
     match /systemSettings/main {allow read:if true;allow create:if isInitialBootstrap()||isOwner();allow update,delete:if isOwner();}
@@ -80,21 +28,17 @@ service cloud.firestore {
     match /usernames/{username} {allow read:if signedIn();allow create:if isOwner()||(newCustomerBatch()&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&!exists(/databases/$(database)/documents/usernames/$(username)));allow update,delete:if isOwner();}
     match /customerProfiles/{uid} {allow read:if isOwner()||(signedIn()&&uid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&uid==request.auth.uid&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.classification=='customer'&&request.resource.data.accountStatus=='active');allow update,delete:if isOwner();}
     match /customerPrivate/{uid} {allow read:if isOwner()||(signedIn()&&uid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&uid==request.auth.uid&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId));allow update,delete:if isOwner();}
-    match /accounts/{accountId} {
-      allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
-      allow create:if isOwner()||(newCustomerBatch()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.status=='active'&&request.resource.data.type in ['checking','savings']&&request.resource.data.availableBalance==request.resource.data.balance&&((request.resource.data.type=='checking'&&request.resource.data.productName=='Everyday Checking'&&request.resource.data.balance==get(settingsPath()).data.startingCustomerBalance)||(request.resource.data.type=='savings'&&request.resource.data.productName=='Growth Savings'&&request.resource.data.balance==0)));
-      allow update:if isOwner()||validAccountUpdate(accountId);allow delete:if isOwner();
+    match /accounts/{accountId} {allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.status=='active'&&request.resource.data.type in ['checking','savings']&&request.resource.data.availableBalance==request.resource.data.balance&&((request.resource.data.type=='checking'&&request.resource.data.productName=='Everyday Checking'&&request.resource.data.balance==get(settingsPath()).data.startingCustomerBalance)||(request.resource.data.type=='savings'&&request.resource.data.productName=='Growth Savings'&&request.resource.data.balance==0)));allow update:if isOwner()||validAccountUpdate(accountId);allow delete:if isOwner();}
+    match /bankingOperations/{operationId} {allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);allow create:if isOwner()||(signedIn()&&!exists(operationPath(operationId))&&request.resource.data.operationId==operationId&&(validIncomeOperation()||validTransferOperation()));allow update,delete:if false;}
+    match /transactions/{transactionId} {allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.type=='opening_deposit'&&request.resource.data.direction=='credit'&&request.resource.data.status=='completed'&&request.resource.data.amount==get(settingsPath()).data.startingCustomerBalance)||(signedIn()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&getAfter(operationPath(request.resource.data.operationId)).data.ownerUid==request.auth.uid&&getAfter(operationPath(request.resource.data.operationId)).data.type==request.resource.data.type&&getAfter(operationPath(request.resource.data.operationId)).data.amount==request.resource.data.amount&&request.resource.data.status=='completed');allow update,delete:if isOwner();}
+
+    match /applications/{applicationId} {
+      allow read:if isOwner()||(signedIn()&&resource.data.applicantUid==request.auth.uid);
+      allow create:if isOwner()||(signedIn()&&request.resource.data.applicantUid==request.auth.uid&&request.resource.data.customerId==get(userPath(request.auth.uid)).data.customerId&&validApplicationType(request.resource.data.applicationType)&&request.resource.data.status=='draft'&&request.resource.data.assignedReviewerUid==null&&request.resource.data.internalNotesCount==0&&request.resource.data.uploadsAllowed==false&&request.resource.data.keys().hasOnly(customerApplicationFields()));
+      allow update:if isOwner()||(signedIn()&&resource.data.applicantUid==request.auth.uid&&request.resource.data.applicantUid==resource.data.applicantUid&&request.resource.data.customerId==resource.data.customerId&&request.resource.data.applicationType==resource.data.applicationType&&request.resource.data.applicationName==resource.data.applicationName&&request.resource.data.category==resource.data.category&&request.resource.data.assignedReviewerUid==resource.data.assignedReviewerUid&&request.resource.data.internalNotesCount==resource.data.internalNotesCount&&request.resource.data.uploadsAllowed==false&&request.resource.data.keys().hasOnly(customerApplicationFields())&&((resource.data.status=='draft'&&request.resource.data.status in ['draft','submitted','withdrawn'])||(resource.data.status=='information-requested'&&request.resource.data.status in ['information-requested','submitted','withdrawn'])||(resource.data.status in ['submitted','initial-review','assigned','department-review','final-review']&&request.resource.data.status=='withdrawn')));
+      allow delete:if isOwner()||(signedIn()&&resource.data.applicantUid==request.auth.uid&&resource.data.status=='draft');
     }
-    match /bankingOperations/{operationId} {
-      allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
-      allow create:if isOwner()||(signedIn()&&!exists(operationPath(operationId))&&request.resource.data.operationId==operationId&&(validIncomeOperation()||validTransferOperation()));
-      allow update,delete:if false;
-    }
-    match /transactions/{transactionId} {
-      allow read:if isOwner()||(signedIn()&&resource.data.ownerUid==request.auth.uid);
-      allow create:if isOwner()||(newCustomerBatch()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.type=='opening_deposit'&&request.resource.data.direction=='credit'&&request.resource.data.status=='completed'&&request.resource.data.amount==get(settingsPath()).data.startingCustomerBalance)||(signedIn()&&request.resource.data.ownerUid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&getAfter(operationPath(request.resource.data.operationId)).data.ownerUid==request.auth.uid&&getAfter(operationPath(request.resource.data.operationId)).data.type==request.resource.data.type&&getAfter(operationPath(request.resource.data.operationId)).data.amount==request.resource.data.amount&&request.resource.data.status=='completed');
-      allow update,delete:if isOwner();
-    }
+
     match /creditProfiles/{uid} {allow read:if isOwner()||(signedIn()&&uid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&uid==request.auth.uid&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.trustScore==get(settingsPath()).data.startingTrustScore);allow update,delete:if isOwner();}
     match /academyProfiles/{uid} {allow read:if isOwner()||(signedIn()&&uid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&uid==request.auth.uid&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.level==1&&request.resource.data.xp==0);allow update,delete:if isOwner();}
     match /achievementProfiles/{uid} {allow read:if isOwner()||(signedIn()&&uid==request.auth.uid);allow create:if isOwner()||(newCustomerBatch()&&uid==request.auth.uid&&request.resource.data.uid==request.auth.uid&&validCustomerId(request.resource.data.customerId)&&request.resource.data.unlocked==['founding-customer']&&request.resource.data.points==25);allow update,delete:if isOwner();}
