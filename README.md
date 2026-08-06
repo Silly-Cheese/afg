@@ -2,59 +2,64 @@
 
 Apex Financial Group (AFG) is a fictional financial institution and economy simulation for a Discord-based community. It does not provide real banking, lending, credit, insurance, investment, or employment services.
 
-## Current release — Phase 2A
+## Current release — Phase 2B
 
 ### Phase 1 foundation
 
 - Responsive public website
 - AFG black, white, platinum, and gold design system
-- Home, About, Services, Academy, Rules, Privacy, and Terms pages
 - Firebase 12.17.1 integration
 - Firebase email/password authentication
-- Protected customer dashboard shell
-- Loading, error, access, and 404 states
-- Mobile navigation and responsive portal layout
+- Protected portal routing
+- Mobile navigation, public rules, privacy, terms, and disclaimers
 
 ### Phase 2A owner bootstrap
 
-- One-time Institution Bootstrap gate before the public application loads
-- Institution identity and financial-default setup
-- Protected Founder and Owner Firebase account
-- Permanent Customer ID `CUS-OWNER`
-- Permanent Staff ID `STF-000001`
-- Founder checking and savings records
-- Five default branches
-- Twelve default departments with accent colors
-- Thirteen-level staff rank structure
-- Global Owner permission package and override authority
-- Initial system settings and public-registration flag
-- First immutable audit record
-- Atomic Firestore initialization
-- Permanently locked bootstrap record after successful completion
+- One-time Institution Bootstrap gate
+- Protected Founder and Owner identity
+- Institution settings, branches, departments, ranks, permissions, and audit initialization
+- Permanent bootstrap lock
+- Global Owner access and override authority
+
+### Phase 2B public customer registration
+
+- Public registration controlled by `systemSettings/main.registrationEnabled`
+- Every new account begins as a customer
+- Unique normalized AFG usernames
+- Random permanent Customer IDs such as `CUS-A4P8K2`
+- Customer profile and protected private profile records
+- Everyday Checking account with the bootstrap starting balance
+- Growth Savings account
+- Financial Trust Score profile using the bootstrap starting score
+- Academy profile starting at Level 1
+- Founding Customer achievement and points
+- Opening-balance transaction record
+- Welcome notification
+- Immutable registration audit event
+- Functional customer portal with identity, balances, accounts, score, academy level, profile progress, and notifications
 - No document upload capability
 
 ## Required Firebase preparation
 
-Before opening the deployed website for the first time:
-
 1. Open the Firebase Console for `afg-game`.
 2. Enable **Authentication → Email/Password**.
 3. Create the Cloud Firestore database.
-4. Deploy the included `firestore.rules`.
-5. Add the website host under **Authentication → Authorized domains**.
-6. Open the website and complete the Institution Bootstrap exactly once.
+4. Deploy the included `firestore.rules` after every security-rule update.
+5. Add the deployed website host under **Authentication → Authorized domains**.
+6. Complete the Institution Bootstrap exactly once.
 
-The bootstrap uses a generated internal Firebase authentication email based on the selected owner username. The user-facing platform will move to username sign-in during Phase 2B.
+## Phase 2B security model
 
-## Bootstrap security model
+Customer registration is performed in one Firestore transaction. The security rules allow customer self-creation only when:
 
-The first institution records must be committed in one atomic batch. Firestore permits that batch only when:
+- Institution bootstrap is complete.
+- Public registration is enabled.
+- The authenticated UID has no existing `users/{uid}` record.
+- The same transaction creates a customer-only user record.
+- Every related record uses the same UID and Customer ID.
+- Starting balances and Trust Score match the protected bootstrap settings.
 
-- No bootstrap record already exists.
-- The authenticated Firebase user is named as the Owner.
-- The same batch creates a completed and locked bootstrap record.
-
-Afterward, the bootstrap record cannot be updated or deleted. The protected Owner may access all initialized records. Phase 2B will add narrowly scoped customer registration and profile rules.
+After registration, customers cannot use the registration permissions again to create additional accounts, opening deposits, scores, achievements, or welcome records. Customers can read their own portal data but cannot directly modify balances, scores, roles, classifications, or audit logs. The Owner retains global access.
 
 ## Local development
 
@@ -71,7 +76,7 @@ npm run build
 
 ## Hosting
 
-The project is a Vite single-page application. It can be deployed to any static host that supports SPA route fallback to `index.html`. Firebase Hosting is not required.
+The project is a Vite single-page application and can be deployed to any static host that supports SPA fallback to `index.html`. Firebase Hosting is not required.
 
 ## Safety
 
