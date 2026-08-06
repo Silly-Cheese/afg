@@ -24,6 +24,17 @@ const appPath = window.location.pathname.startsWith(basePath)
   : window.location.pathname;
 const pageUrl = (path = '/') => `${basePath}${path.startsWith('/') ? path : `/${path}`}`;
 
+// Older phase pages contain root-relative links. Keep those links inside the
+// GitHub Pages project base without having to weaken or duplicate each portal.
+document.addEventListener('click', (event) => {
+  const anchor = event.target.closest?.('a');
+  if (!anchor || event.defaultPrevented || event.button !== 0) return;
+  const href = anchor.getAttribute('href');
+  if (!href || !href.startsWith('/') || href.startsWith(`${basePath}/`) || href.startsWith('//')) return;
+  event.preventDefault();
+  window.location.assign(pageUrl(href));
+});
+
 function Loading() {
   return (
     <main className="bootstrap-loading">
