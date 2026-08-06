@@ -1,33 +1,125 @@
-import React,{createContext,useContext,useEffect,useMemo,useState}from'react';
-import{createRoot}from'react-dom/client';
-import{BrowserRouter,Navigate,NavLink,Route,Routes,useLocation,useNavigate}from'react-router-dom';
-import{getApp,getApps,initializeApp}from'firebase/app';
-import{createUserWithEmailAndPassword,deleteUser,getAuth,onAuthStateChanged,signInWithEmailAndPassword,updateProfile}from'firebase/auth';
-import{getFirestore}from'firebase/firestore';
-import{ArrowRight,BadgeCheck,BookOpen,BriefcaseBusiness,Building2,CheckCircle2,CircleDollarSign,Gauge,Landmark,LayoutDashboard,LockKeyhole,LogIn,Menu,Scale,ShieldCheck,Sparkles,TrendingUp,Trophy,UserPlus,Users,WalletCards,X}from'lucide-react';
-import{createCustomerIdentity,getInstitutionSettings,normalizeUsername,validateUsername}from'./customer/customerService.js';
-import CustomerPortal from'./customer/CustomerPortal.jsx';
-import'./styles.css';import'./customer/phase2b.css';import'./banking/phase3.css';import'./progression/phase4.css';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { ArrowRight, Building2, Landmark, LayoutDashboard, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
+import { createCustomerIdentity, getInstitutionSettings, normalizeUsername, validateUsername } from './customer/customerService.js';
+import CustomerPortal from './customer/CustomerPortal.jsx';
+import './styles.css';
+import './customer/phase2b.css';
+import './banking/phase3.css';
+import './progression/phase4.css';
 
-const config={apiKey:'AIzaSyCG7LQR2vM2r68Y414jToA1_CDmUE_Ncdw',authDomain:'afg-game.firebaseapp.com',projectId:'afg-game',storageBucket:'afg-game.firebasestorage.app',messagingSenderId:'779966850290',appId:'1:779966850290:web:24f48af23a2e6cae2d9c6b'};
-const app=getApps().length?getApp():initializeApp(config);export const auth=getAuth(app);export const db=getFirestore(app);
-const AuthContext=createContext(null);const useAuth=()=>useContext(AuthContext);
-function AuthProvider({children}){const[user,setUser]=useState(null);const[loading,setLoading]=useState(true);useEffect(()=>onAuthStateChanged(auth,next=>{setUser(next);setLoading(false)}),[]);return <AuthContext.Provider value={useMemo(()=>({user,loading}),[user,loading])}>{children}</AuthContext.Provider>}
-const nav=[['/','Home'],['/about','About'],['/services','Services'],['/academy','Academy'],['/rules','Rules']];
-function Brand({compact=false}){return <NavLink to="/" className="brand"><span className="brand-mark"><Landmark size={compact?20:24}/></span><span className="brand-copy"><strong>{compact?'AFG':'Apex Financial Group'}</strong>{!compact&&<small>Building Tomorrow's Success.</small>}</span></NavLink>}
-function Header(){const[open,setOpen]=useState(false);const{user}=useAuth();const location=useLocation();useEffect(()=>setOpen(false),[location.pathname]);return <header className="site-header"><div className="container header-inner"><Brand/><button className="icon-button menu-button" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button><nav className={`main-nav ${open?'is-open':''}`}><div className="nav-links">{nav.map(([to,label])=><NavLink key={to} to={to}>{label}</NavLink>)}</div><div className="nav-actions">{user?<NavLink className="button button-dark" to="/dashboard"><LayoutDashboard size={17}/> Dashboard</NavLink>:<><NavLink className="button button-ghost" to="/signin"><LogIn size={17}/> Sign in</NavLink><NavLink className="button button-gold" to="/register"><UserPlus size={17}/> Create account</NavLink></>}</div></nav></div></header>}
-function Footer(){return <footer className="site-footer"><div className="container footer-grid"><div><Brand compact/><p>A fictional financial institution and progression game for Discord community roleplay.</p></div><div><h3>Institution</h3><NavLink to="/about">About AFG</NavLink><NavLink to="/services">Services</NavLink><NavLink to="/academy">Financial Academy</NavLink></div><div><h3>Safety</h3><NavLink to="/rules">Rules</NavLink><NavLink to="/privacy">Privacy & safety</NavLink><NavLink to="/terms">Simulation terms</NavLink></div></div><div className="container footer-bottom"><p>© 2026 Apex Financial Group.</p><p><strong>Fictional simulation:</strong> No real financial services are offered.</p></div></footer>}
-const Shell=({children})=><><Header/><main>{children}</main><Footer/></>;
-const services=[[WalletCards,'Personal Banking','Checking, savings, transfers, fictional income, and searchable transaction history.'],[Gauge,'Trust & Progression','Understand score factors, standing, classification, milestones, reputation, and product eligibility.'],[CircleDollarSign,'Lending & Credit','Applications, lending decisions, terms, payments, and collections arrive in upcoming phases.'],[BriefcaseBusiness,'Staff Careers','Apply for staff, complete training, join departments, earn promotions, and lead branches.'],[BookOpen,'Financial Academy','Complete customer education and staff certifications inside the platform.'],[TrendingUp,'Evolving Economy','Participate in achievements, branch competition, businesses, and changing conditions.']];
-function Home(){return <Shell><section className="hero-section"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow"><Sparkles size={15}/> PHASE 4 NOW ACTIVE</span><h1>Build more than a balance. Build your standing.</h1><p>Manage fictional banking, understand your Financial Trust Score, unlock milestones, improve reputation, and qualify for better products inside Apex Financial Group.</p><div className="hero-actions"><NavLink className="button button-gold button-large" to="/register">Create customer account <ArrowRight size={18}/></NavLink><a className="button button-light button-large" href="/progression">Open progression center</a></div><div className="trust-row"><span><ShieldCheck size={17}/> Fictional information only</span><span><BadgeCheck size={17}/> Transparent score factors</span><span><LockKeyhole size={17}/> Owner-audited overrides</span></div></div><div className="hero-panel"><div className="panel-topline"><span>CUSTOMER PROGRESSION</span><span className="live-pill">PHASE 4 LIVE</span></div><div className="balance-card"><span>Financial standing</span><strong>Visible & explainable</strong><small>Score · Reputation · Eligibility · Milestones</small></div><div className="metric-grid"><div><small>Score range</small><strong>300–850</strong><span>Six tiers</span></div><div><small>Standing</small><strong>Dynamic</strong><span>Profile based</span></div><div><small>Milestones</small><strong>6</strong><span>Launch set</span></div><div><small>Overrides</small><strong>Logged</strong><span>Owner only</span></div></div></div></div></section><section className="section section-white"><div className="container"><div className="section-heading centered"><span className="eyebrow">ONE CONNECTED PLATFORM</span><h2>Your financial profile now has meaning.</h2><p>Phase 4 connects banking activity to visible customer standing and future product access.</p></div><div className="card-grid three-columns">{services.map(([Icon,title,body])=><article className="feature-card" key={title}><span className="feature-icon"><Icon/></span><h3>{title}</h3><p>{body}</p></article>)}</div></div></section></Shell>}
-function Info({eyebrow,title,description,children}){return <Shell><section className="page-hero"><div className="container narrow"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div></section><section className="section section-white"><div className="container narrow rich-content">{children}</div></section></Shell>}
-const About=()=> <Info eyebrow="ABOUT AFG" title="A fictional economy with real structure." description="Financial simulation, professional roleplay, education, progression, and institutional management in one platform."><h2>How AFG works</h2><p>Every member begins as a customer. Banking activity, reputation, Trust Score, academy progress, and future obligations shape eligibility and standing.</p><div className="info-callout"><Trophy/><div><strong>Progress with purpose</strong><p>Customers can see exactly what they have achieved and what remains locked.</p></div></div></Info>;
-const Services=()=> <Info eyebrow="SERVICES" title="An entire institution under one roof." description="Every system connects to the same permanent customer identity."><div className="card-grid two-columns">{services.map(([Icon,title,body])=><article className="feature-card" key={title}><span className="feature-icon"><Icon/></span><h3>{title}</h3><p>{body}</p></article>)}</div></Info>;
-const Academy=()=> <Info eyebrow="AFG FINANCIAL ACADEMY" title="Learn, certify, and advance." description="Education will contribute to customer and staff progression."><div className="card-grid two-columns"><article className="feature-card"><Users/><h3>Customer Academy</h3><p>Budgeting, credit, borrowing, saving, investing, and business finance.</p></article><article className="feature-card"><BriefcaseBusiness/><h3>Staff Academy</h3><p>Orientation, department certifications, monthly training, and leadership development.</p></article></div></Info>;
-const Rules=()=> <Info eyebrow="COMMUNITY RULES" title="Keep the simulation safe and fair." description="These rules apply to every customer and staff member."><ol className="rule-list"><li><strong>Use fictional information only.</strong><span>No real financial or identifying data.</span></li><li><strong>Do not exploit progression.</strong><span>Artificial activity, duplicate accounts, and manipulation are prohibited.</span></li><li><strong>Use income tools honestly.</strong><span>Entries must represent approved fictional community activity.</span></li><li><strong>Owner authority is final.</strong><span>Owner overrides are permitted and permanently audited.</span></li></ol></Info>;
-const Privacy=()=> <Info eyebrow="PRIVACY & SAFETY" title="No uploads. No real financial records." description="AFG stores only information needed for the fictional platform."><h2>Allowed information</h2><p>Display name, AFG username, Discord username, login email, and fictional game data.</p><h2>Never provide</h2><p>Government IDs, real addresses, banking details, income statements, account numbers, or documents.</p></Info>;
-const Terms=()=> <Info eyebrow="SIMULATION TERMS" title="No real financial relationship is created." description="Every balance, score, classification, loan, and asset is fictional."><p>AFG balances have no cash value. Trust Scores are game mechanics and are not real credit scores.</p></Info>;
-function AuthPage({mode}){const register=mode==='register';const navigate=useNavigate();const{user}=useAuth();const[form,setForm]=useState({displayName:'',username:'',discord:'',email:'',password:'',confirm:'',accepted:false});const[settings,setSettings]=useState(null);const[error,setError]=useState('');const[busy,setBusy]=useState(false);useEffect(()=>{getInstitutionSettings(db).then(({settings})=>setSettings(settings)).catch(()=>setSettings({registrationEnabled:false}))},[]);useEffect(()=>{if(user)navigate('/dashboard',{replace:true})},[user,navigate]);const update=e=>setForm(v=>({...v,[e.target.name]:e.target.type==='checkbox'?e.target.checked:e.target.value}));async function submit(e){e.preventDefault();setError('');if(register&&settings?.registrationEnabled===false)return setError('Public registration is closed.');if(register&&validateUsername(form.username))return setError(validateUsername(form.username));if(register&&form.password!==form.confirm)return setError('Passwords do not match.');if(register&&!form.accepted)return setError('Accept the simulation rules.');setBusy(true);let credential;try{if(register){credential=await createUserWithEmailAndPassword(auth,form.email.trim(),form.password);await updateProfile(credential.user,{displayName:form.displayName.trim()});await createCustomerIdentity(db,credential.user,{...form,username:normalizeUsername(form.username)},settings)}else await signInWithEmailAndPassword(auth,form.email.trim(),form.password);navigate('/dashboard')}catch(err){if(register&&credential?.user)try{await deleteUser(credential.user)}catch{}setError(err.message||'The request could not be completed.')}finally{setBusy(false)}}return <div className="auth-page"><div className="auth-brand-panel"><Brand/><div className="auth-message"><span className="eyebrow eyebrow-dark">PHASE 4</span><h1>{register?'Create your financial identity.':'Welcome back to AFG.'}</h1><p>{register?'Begin as a customer with banking, progression, reputation, milestones, and future eligibility.':'Sign in to banking and progression.'}</p><div className="check-list compact"><div><CheckCircle2/><span>Customer by default</span></div><div><CheckCircle2/><span>No document uploads</span></div><div><CheckCircle2/><span>Transparent progression</span></div></div></div><small>Building Tomorrow's Success.</small></div><div className="auth-form-panel"><div className="auth-form-wrap"><NavLink to="/" className="back-link">← Return to website</NavLink><span className="eyebrow">{register?'CUSTOMER REGISTRATION':'SECURE SIGN IN'}</span><h2>{register?'Join Apex Financial Group':'Access your account'}</h2>{error&&<div className="form-alert">{error}</div>}<form className="auth-form" onSubmit={submit}>{register&&<><label>Display name<input name="displayName" value={form.displayName} onChange={update} required maxLength="40"/></label><label>AFG username<input name="username" value={form.username} onChange={update} required minLength="3" maxLength="20"/></label><label>Discord username<input name="discord" value={form.discord} onChange={update} required maxLength="40"/></label></>}<label>Email address<input name="email" type="email" value={form.email} onChange={update} required/></label><label>Password<input name="password" type="password" value={form.password} onChange={update} required minLength="6"/></label>{register&&<><label>Confirm password<input name="confirm" type="password" value={form.confirm} onChange={update} required minLength="6"/></label><label className="checkbox-row"><input name="accepted" type="checkbox" checked={form.accepted} onChange={update}/><span>I accept the fictional-information rule and simulation terms.</span></label></>}<button className="button button-dark button-large full-width" disabled={busy}>{busy?'Please wait…':register?'Create customer account':'Sign in'} <ArrowRight size={18}/></button></form><p className="auth-switch">{register?'Already registered?':'New to AFG?'} <NavLink to={register?'/signin':'/register'}>{register?'Sign in':'Create account'}</NavLink></p></div></div></div>}
-function Loading(){return <div className="loading-screen"><Landmark/><strong>Apex Financial Group</strong><span>Loading secure portal…</span></div>};function Protected({children}){const{user,loading}=useAuth();if(loading)return <Loading/>;return user?children:<Navigate to="/signin" replace/>};function Dashboard(){const{user}=useAuth();return <CustomerPortal auth={auth} db={db} user={user}/>};const Missing=()=> <Shell><section className="page-hero"><div className="container narrow"><span className="eyebrow">404</span><h1>That page does not exist.</h1><NavLink className="button button-dark" to="/">Return home</NavLink></div></section></Shell>;
-function App(){return <AuthProvider><Routes><Route path="/" element={<Home/>}/><Route path="/about" element={<About/>}/><Route path="/services" element={<Services/>}/><Route path="/academy" element={<Academy/>}/><Route path="/rules" element={<Rules/>}/><Route path="/privacy" element={<Privacy/>}/><Route path="/terms" element={<Terms/>}/><Route path="/signin" element={<AuthPage mode="signin"/>}/><Route path="/register" element={<AuthPage mode="register"/>}/><Route path="/dashboard" element={<Protected><Dashboard/></Protected>}/><Route path="*" element={<Missing/>}/></Routes></AuthProvider>}
-createRoot(document.getElementById('root')).render(<React.StrictMode><BrowserRouter><App/></BrowserRouter></React.StrictMode>);
+const config = {
+  apiKey: 'AIzaSyCG7LQR2vM2r68Y414jToA1_CDmUE_Ncdw',
+  authDomain: 'afg-game.firebaseapp.com',
+  projectId: 'afg-game',
+  storageBucket: 'afg-game.firebasestorage.app',
+  messagingSenderId: '779966850290',
+  appId: '1:779966850290:web:24f48af23a2e6cae2d9c6b',
+};
+
+const app = getApps().length ? getApp() : initializeApp(config);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+const baseName = import.meta.env.BASE_URL.replace(/\/$/, '');
+const portalUrl = (path) => `${baseName}${path}`;
+
+const AuthContext = createContext(null);
+const useAuth = () => useContext(AuthContext);
+
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => onAuthStateChanged(auth, (next) => {
+    setUser(next);
+    setLoading(false);
+  }), []);
+  return <AuthContext.Provider value={useMemo(() => ({ user, loading }), [user, loading])}>{children}</AuthContext.Provider>;
+}
+
+function Brand() {
+  return <NavLink to="/" className="brand"><span className="brand-mark"><Landmark /></span><span className="brand-copy"><strong>Apex Financial Group</strong><small>Building Tomorrow&apos;s Success.</small></span></NavLink>;
+}
+
+function Header() {
+  const { user } = useAuth();
+  return <header className="site-header"><div className="container header-inner"><Brand/><nav className="main-nav"><div className="nav-links"><NavLink to="/">Home</NavLink><NavLink to="/about">About</NavLink><NavLink to="/services">Services</NavLink><NavLink to="/rules">Rules</NavLink></div><div className="nav-actions">{user ? <><NavLink className="button button-dark" to="/dashboard"><LayoutDashboard size={17}/> Dashboard</NavLink><button className="button button-ghost" onClick={() => signOut(auth)}>Sign out</button></> : <><NavLink className="button button-ghost" to="/signin"><LogIn size={17}/> Sign in</NavLink><NavLink className="button button-gold" to="/register"><UserPlus size={17}/> Create account</NavLink></>}</div></nav></div></header>;
+}
+
+function Shell({ children }) {
+  return <><Header/><main>{children}</main><footer className="site-footer"><div className="container footer-bottom"><p>© 2026 Apex Financial Group.</p><p><strong>Fictional simulation:</strong> No real financial services are offered.</p></div></footer></>;
+}
+
+function Home() {
+  return <Shell><section className="hero-section"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow">FULL INSTITUTION PLATFORM</span><h1>Build your fictional financial future.</h1><p>Banking, lending, careers, departments, education, businesses, property, investments, insurance, and institution management—all connected to one permanent AFG identity.</p><div className="hero-actions"><NavLink className="button button-gold button-large" to="/register">Create customer account <ArrowRight size={18}/></NavLink><NavLink className="button button-light button-large" to="/signin">Sign in</NavLink></div><div className="trust-row"><span><ShieldCheck size={17}/> Fictional information only</span><span><Building2 size={17}/> Fourteen completed phases</span></div></div><div className="hero-panel"><div className="panel-topline"><span>APEX FINANCIAL GROUP</span><span className="live-pill">LIVE</span></div><div className="balance-card"><span>Connected institution</span><strong>Customer + Staff + Economy</strong><small>One account. Multiple portals. Permanent IDs.</small></div><div className="metric-grid"><div><small>Banking</small><strong>Active</strong></div><div><small>Lending</small><strong>Active</strong></div><div><small>Careers</small><strong>Active</strong></div><div><small>Economy</small><strong>Active</strong></div></div></div></div></section><section className="section section-white"><div className="container"><div className="section-heading centered"><span className="eyebrow">EXPLORE AFG</span><h2>Every major system is connected.</h2></div><div className="card-grid three-columns">{[['Financial Academy','/academy-center'],['Applications','/applications'],['Progression & Trust','/progression'],['Business & Economy','/economy-center'],['Careers & Branches','/career-center'],['Loan Center','/loans']].map(([title,path]) => <a className="feature-card" href={portalUrl(path)} key={path}><h3>{title}</h3><p>Open the secure AFG portal.</p></a>)}</div></div></section></Shell>;
+}
+
+function Info({ title, children }) {
+  return <Shell><section className="page-hero"><div className="container narrow"><span className="eyebrow">APEX FINANCIAL GROUP</span><h1>{title}</h1></div></section><section className="section section-white"><div className="container narrow rich-content">{children}</div></section></Shell>;
+}
+
+function AuthPage({ mode }) {
+  const register = mode === 'register';
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [settings, setSettings] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ displayName: '', username: '', discord: '', email: '', password: '', confirm: '', accepted: false });
+
+  useEffect(() => { getInstitutionSettings(db).then(({ settings: next }) => setSettings(next)).catch(() => setSettings({ registrationEnabled: false })); }, []);
+  useEffect(() => { if (user) navigate('/dashboard', { replace: true }); }, [user, navigate]);
+  const update = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (register && settings?.registrationEnabled === false) return setError('Public registration is closed.');
+    if (register && validateUsername(form.username)) return setError(validateUsername(form.username));
+    if (register && form.password !== form.confirm) return setError('Passwords do not match.');
+    if (register && !form.accepted) return setError('Accept the fictional-information rule.');
+    setBusy(true);
+    let credential;
+    try {
+      if (register) {
+        credential = await createUserWithEmailAndPassword(auth, form.email.trim(), form.password);
+        await updateProfile(credential.user, { displayName: form.displayName.trim() });
+        await createCustomerIdentity(db, credential.user, { ...form, username: normalizeUsername(form.username) }, settings);
+      } else {
+        await signInWithEmailAndPassword(auth, form.email.trim(), form.password);
+      }
+      navigate('/dashboard');
+    } catch (cause) {
+      if (register && credential?.user) try { await deleteUser(credential.user); } catch {}
+      setError(cause?.message || 'The request could not be completed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="auth-page"><div className="auth-brand-panel"><Brand/><div className="auth-message"><span className="eyebrow eyebrow-dark">SECURE AFG ACCESS</span><h1>{register ? 'Create your financial identity.' : 'Welcome back to AFG.'}</h1><p>Use fictional information only. No document uploads are available.</p></div></div><div className="auth-form-panel"><div className="auth-form-wrap"><NavLink to="/" className="back-link">← Return to website</NavLink><h2>{register ? 'Join Apex Financial Group' : 'Access your account'}</h2>{error && <div className="form-alert">{error}</div>}<form className="auth-form" onSubmit={submit}>{register && <><label>Display name<input name="displayName" value={form.displayName} onChange={update} required/></label><label>AFG username<input name="username" value={form.username} onChange={update} required/></label><label>Discord username<input name="discord" value={form.discord} onChange={update} required/></label></>}<label>Email address<input name="email" type="email" value={form.email} onChange={update} required/></label><label>Password<input name="password" type="password" value={form.password} onChange={update} required minLength="6"/></label>{register && <><label>Confirm password<input name="confirm" type="password" value={form.confirm} onChange={update} required/></label><label className="checkbox-row"><input name="accepted" type="checkbox" checked={form.accepted} onChange={update}/><span>I will use fictional information only.</span></label></>}<button className="button button-dark button-large full-width" disabled={busy}>{busy ? 'Please wait…' : register ? 'Create customer account' : 'Sign in'}</button></form></div></div></div>;
+}
+
+function Protected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading-screen"><Landmark/><strong>Apex Financial Group</strong><span>Loading secure portal…</span></div>;
+  return user ? children : <Navigate to="/signin" replace/>;
+}
+
+function App() {
+  const { user } = useAuth();
+  return <Routes><Route path="/" element={<Home/>}/><Route path="/about" element={<Info title="A fictional economy with real structure."><p>AFG combines financial simulation, professional roleplay, education, progression, and institutional management.</p></Info>}/><Route path="/services" element={<Info title="An entire institution under one roof."><p>Every system connects to the same permanent customer identity.</p></Info>}/><Route path="/rules" element={<Info title="Keep the simulation safe and fair."><p>Use fictional information only. Do not exploit progression. Owner authority is final and audited.</p></Info>}/><Route path="/signin" element={user ? <Navigate to="/dashboard" replace/> : <AuthPage mode="signin"/>}/><Route path="/register" element={user ? <Navigate to="/dashboard" replace/> : <AuthPage mode="register"/>}/><Route path="/dashboard" element={<Protected><CustomerPortal auth={auth} db={db} user={user}/></Protected>}/><Route path="*" element={<Info title="Page not found"><NavLink className="button button-dark" to="/">Return home</NavLink></Info>}/></Routes>;
+}
+
+createRoot(document.getElementById('root')).render(<React.StrictMode><BrowserRouter basename={baseName}><AuthProvider><App/></AuthProvider></BrowserRouter></React.StrictMode>);
