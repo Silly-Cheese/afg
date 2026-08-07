@@ -20,6 +20,16 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const root = createRoot(document.getElementById('root'));
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+const recovery = new URLSearchParams(window.location.search);
+const recoveredRoute = recovery.get('route');
+if (recoveredRoute) {
+  const recoveredQuery = decodeURIComponent(recovery.get('q') || '');
+  const recoveredHash = decodeURIComponent(recovery.get('h') || '');
+  const clean = `${basePath}${recoveredRoute.startsWith('/') ? recoveredRoute : `/${recoveredRoute}`}${recoveredQuery}${recoveredHash}`;
+  window.history.replaceState({}, '', clean);
+}
+
 const appPath = window.location.pathname.startsWith(basePath)
   ? window.location.pathname.slice(basePath.length) || '/'
   : window.location.pathname;
