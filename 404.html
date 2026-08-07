@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Apex Financial Group</title>
+  <script>
+    (function () {
+      var path = window.location.pathname;
+      var base = '/afg';
+      var route = path.startsWith(base) ? path.slice(base.length) : path;
+      var query = window.location.search || '';
+      var hash = window.location.hash || '';
+      window.location.replace(base + '/?route=' + encodeURIComponent(route || '/') + '&q=' + encodeURIComponent(query) + '&h=' + encodeURIComponent(hash));
+    })();
+  </script>
+</head>
+<body></body>
+</html>
