@@ -3,1047 +3,141 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ============================================================
-    // CORE HELPERS
-    // ============================================================
+    function signedIn() { return request.auth != null; }
+    function bootstrapDoc() { return /databases/$(database)/documents/system/bootstrap; }
+    function settingsDoc() { return /databases/$(database)/documents/systemSettings/main; }
+    function userDoc(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function staffProfileDoc(uid) { return /databases/$(database)/documents/staffProfiles/$(uid); }
+    function staffPermissionsDoc(uid) { return /databases/$(database)/documents/staffPermissions/$(uid); }
+    function bootstrapComplete() { return exists(bootstrapDoc()) && get(bootstrapDoc()).data.status == 'complete'; }
+    function ownerUid() { return get(bootstrapDoc()).data.ownerUid; }
+    function isOwner() { return signedIn() && bootstrapComplete() && request.auth.uid == ownerUid(); }
+    function isInitialBootstrap() { return signedIn() && !exists(bootstrapDoc()) && getAfter(bootstrapDoc()).data.status == 'complete' && getAfter(bootstrapDoc()).data.locked == true && getAfter(bootstrapDoc()).data.ownerUid == request.auth.uid; }
+    function registrationOpen() { return bootstrapComplete() && exists(settingsDoc()) && get(settingsDoc()).data.registrationEnabled == true && get(settingsDoc()).data.maintenanceMode != true; }
+    function hasPermission(values) { return signedIn() && exists(staffPermissionsDoc(request.auth.uid)) && get(staffPermissionsDoc(request.auth.uid)).data.permissions is list && get(staffPermissionsDoc(request.auth.uid)).data.permissions.hasAny(values); }
+    function isStaff() { return isOwner() || (signedIn() && exists(staffProfileDoc(request.auth.uid)) && get(staffProfileDoc(request.auth.uid)).data.staffStatus != 'terminated'); }
+    function hasManagementTitle() { return signedIn() && exists(staffProfileDoc(request.auth.uid)) && get(staffProfileDoc(request.auth.uid)).data.rankName is string && (get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*Manager.*') || get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*Director.*') || get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*Executive.*') || get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*Chief.*') || get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*President.*') || get(staffProfileDoc(request.auth.uid)).data.rankName.matches('.*Owner.*')); }
+    function isStaffManager() { return isOwner() || hasPermission(['staff.manage', 'owner.override_all']) || hasManagementTitle(); }
+    function isHRStaff() { return isOwner() || hasPermission(['staff.applications.view','staff.applications.review','staff.manage','hr.manage','owner.override_all']); }
+    function isLendingStaff() { return isOwner() || hasPermission(['applications.view','applications.review','applications.claim','applications.approve','applications.deny','loans.view','owner.override_all']); }
+    function isServicingStaff() { return isOwner() || hasPermission(['loans.view','loans.modify','collections.manage','owner.override_all']); }
+    function isAcademyManager() { return isOwner() || hasPermission(['training.manage','academy.manage','staff.manage','owner.override_all']); }
+    function isEconomyManager() { return isOwner() || hasPermission(['business.manage','property.manage','investments.manage','insurance.manage','owner.override_all']); }
+    function isAuditStaff() { return isOwner() || hasPermission(['audit.view','audit.manage','owner.override_all']); }
+    function isTechnologyStaff() { return isOwner() || hasPermission(['technology.view','systems.manage','owner.override_all']); }
+    function ownsResource() { return signedIn() && resource.data.ownerUid == request.auth.uid; }
+    function ownsNewResource() { return signedIn() && request.resource.data.ownerUid == request.auth.uid; }
+    function isOwnUid(uid) { return signedIn() && uid == request.auth.uid; }
+    function currentCustomerId() { return get(userDoc(request.auth.uid)).data.customerId; }
+    function isNewCustomerBatch() { return registrationOpen() && signedIn() && !exists(userDoc(request.auth.uid)) && getAfter(userDoc(request.auth.uid)).data.uid == request.auth.uid && getAfter(userDoc(request.auth.uid)).data.primaryRole == 'customer' && getAfter(userDoc(request.auth.uid)).data.accountStatus == 'active'; }
+    function validOwnCustomerId(value) { return value == getAfter(userDoc(request.auth.uid)).data.customerId; }
+    function immutableNewRecord() { return request.resource.data.immutable == true; }
+    function reasonProvided() { return request.resource.data.reason is string && request.resource.data.reason.size() >= 10; }
 
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function bootstrapDoc() {
-      return /databases/$(database)/documents/system/bootstrap;
-    }
-
-    function settingsDoc() {
-      return /databases/$(database)/documents/systemSettings/main;
-    }
-
-    function userDoc(uid) {
-      return /databases/$(database)/documents/users/$(uid);
-    }
-
-    function customerProfileDoc(uid) {
-      return /databases/$(database)/documents/customerProfiles/$(uid);
-    }
-
-    function staffProfileDoc(uid) {
-      return /databases/$(database)/documents/staffProfiles/$(uid);
-    }
-
-    function staffPermissionsDoc(uid) {
-      return /databases/$(database)/documents/staffPermissions/$(uid);
-    }
-
-    function accountDoc(id) {
-      return /databases/$(database)/documents/accounts/$(id);
-    }
-
-    function applicationDoc(id) {
-      return /databases/$(database)/documents/applications/$(id);
-    }
-
-    function loanDoc(id) {
-      return /databases/$(database)/documents/loans/$(id);
-    }
-
-    function bankingOperationDoc(id) {
-      return /databases/$(database)/documents/bankingOperations/$(id);
-    }
-
-    function loanOperationDoc(id) {
-      return /databases/$(database)/documents/loanOperations/$(id);
-    }
-
-    function investmentOperationDoc(id) {
-      return /databases/$(database)/documents/investmentOperations/$(id);
-    }
-
-    function bootstrapComplete() {
-      return exists(bootstrapDoc())
-        && get(bootstrapDoc()).data.status == 'complete';
-    }
-
-    function ownerUid() {
-      return get(bootstrapDoc()).data.ownerUid;
-    }
-
-    function isOwner() {
-      return signedIn()
-        && bootstrapComplete()
-        && request.auth.uid == ownerUid();
-    }
-
-    function isInitialBootstrap() {
-      return signedIn()
-        && !exists(bootstrapDoc())
-        && getAfter(bootstrapDoc()).data.status == 'complete'
-        && getAfter(bootstrapDoc()).data.locked == true
-        && getAfter(bootstrapDoc()).data.ownerUid == request.auth.uid;
-    }
-
-    function registrationOpen() {
-      return bootstrapComplete()
-        && exists(settingsDoc())
-        && get(settingsDoc()).data.registrationEnabled == true
-        && get(settingsDoc()).data.maintenanceMode != true;
-    }
-
-    function hasPermission(values) {
-      return signedIn()
-        && exists(staffPermissionsDoc(request.auth.uid))
-        && get(staffPermissionsDoc(request.auth.uid)).data.permissions is list
-        && get(staffPermissionsDoc(request.auth.uid)).data.permissions.hasAny(values);
-    }
-
-    function isStaff() {
-      return isOwner()
-        || (signedIn()
-          && exists(staffProfileDoc(request.auth.uid))
-          && get(staffProfileDoc(request.auth.uid)).data.staffStatus != 'terminated');
-    }
-
-    function isStaffManager() {
-      return isOwner()
-        || hasPermission(['staff.manage', 'owner.override_all']);
-    }
-
-    function isHRStaff() {
-      return isOwner()
-        || hasPermission([
-          'staff.applications.view',
-          'staff.applications.review',
-          'staff.manage',
-          'hr.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function isLendingStaff() {
-      return isOwner()
-        || hasPermission([
-          'applications.view',
-          'applications.review',
-          'applications.claim',
-          'applications.approve',
-          'applications.deny',
-          'loans.view',
-          'owner.override_all'
-        ]);
-    }
-
-    function isServicingStaff() {
-      return isOwner()
-        || hasPermission([
-          'loans.view',
-          'loans.modify',
-          'collections.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function isAcademyManager() {
-      return isOwner()
-        || hasPermission([
-          'training.manage',
-          'academy.manage',
-          'staff.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function isEconomyManager() {
-      return isOwner()
-        || hasPermission([
-          'business.manage',
-          'property.manage',
-          'investments.manage',
-          'insurance.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function isAuditStaff() {
-      return isOwner()
-        || hasPermission([
-          'audit.view',
-          'audit.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function isTechnologyStaff() {
-      return isOwner()
-        || hasPermission([
-          'technology.view',
-          'systems.manage',
-          'owner.override_all'
-        ]);
-    }
-
-    function ownsResource() {
-      return signedIn()
-        && resource.data.ownerUid == request.auth.uid;
-    }
-
-    function ownsNewResource() {
-      return signedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
-    }
-
-    function isOwnUid(uid) {
-      return signedIn() && uid == request.auth.uid;
-    }
-
-    function currentCustomerId() {
-      return get(userDoc(request.auth.uid)).data.customerId;
-    }
-
-    function isNewCustomerBatch() {
-      return registrationOpen()
-        && signedIn()
-        && !exists(userDoc(request.auth.uid))
-        && getAfter(userDoc(request.auth.uid)).data.uid == request.auth.uid
-        && getAfter(userDoc(request.auth.uid)).data.primaryRole == 'customer'
-        && getAfter(userDoc(request.auth.uid)).data.accountStatus == 'active';
-    }
-
-    function validOwnCustomerId(value) {
-      return value == getAfter(userDoc(request.auth.uid)).data.customerId;
-    }
-
-    function immutableNewRecord() {
-      return request.resource.data.immutable == true;
-    }
-
-    function reasonProvided() {
-      return request.resource.data.reason is string
-        && request.resource.data.reason.size() >= 10;
-    }
-
-    // ============================================================
-    // SYSTEM AND BOOTSTRAP
-    // ============================================================
-
-    match /system/bootstrap {
-      allow read: if true;
-      allow create: if isInitialBootstrap();
-      allow update, delete: if false;
-    }
-
-    match /systemSettings/main {
-      allow read: if true;
-      allow create: if isInitialBootstrap() || isOwner();
-      allow update, delete: if isOwner();
-    }
-
-    // ============================================================
-    // USERNAME LOGIN AND IDENTITIES
-    // ============================================================
+    match /system/bootstrap { allow read: if true; allow create: if isInitialBootstrap(); allow update, delete: if false; }
+    match /systemSettings/main { allow read: if true; allow create: if isInitialBootstrap() || isOwner(); allow update, delete: if isOwner(); }
 
     match /usernames/{username} {
-      // Individual username lookup is public so login can resolve the
-      // internal Firebase credential. Collection listing is forbidden.
-      allow get: if true;
-      allow list: if false;
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && request.resource.data.uid == request.auth.uid
-          && validOwnCustomerId(request.resource.data.customerId)
-          && request.resource.data.authEmail == request.auth.token.email);
-
-      allow update: if isOwner()
-        || (signedIn()
-          && resource.data.uid == request.auth.uid
-          && request.resource.data.uid == resource.data.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['authEmail', 'updatedAt']));
-
+      allow get: if true; allow list: if false;
+      allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && request.resource.data.uid == request.auth.uid && validOwnCustomerId(request.resource.data.customerId) && request.resource.data.authEmail == request.auth.token.email);
+      allow update: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == resource.data.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authEmail','updatedAt']));
       allow delete: if isOwner();
     }
 
     match /users/{uid} {
       allow read: if isOwner() || isOwnUid(uid);
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (registrationOpen()
-          && isOwnUid(uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.primaryRole == 'customer'
-          && request.resource.data.roles == ['customer']
-          && request.resource.data.accountStatus == 'active');
-
-      allow update: if isOwner()
-        || (isOwnUid(uid)
-          && request.resource.data.uid == resource.data.uid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['displayName', 'discordUsername', 'updatedAt']));
-
+      allow create: if isInitialBootstrap() || isOwner() || (registrationOpen() && isOwnUid(uid) && request.resource.data.uid == request.auth.uid && request.resource.data.primaryRole == 'customer' && request.resource.data.roles == ['customer'] && request.resource.data.accountStatus == 'active');
+      allow update: if isOwner() || (isOwnUid(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.customerId == resource.data.customerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','discordUsername','updatedAt']));
       allow delete: if isOwner() && uid != ownerUid();
     }
 
     match /customerProfiles/{uid} {
       allow read: if isOwner() || isOwnUid(uid);
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && isOwnUid(uid)
-          && request.resource.data.uid == request.auth.uid
-          && validOwnCustomerId(request.resource.data.customerId));
-
-      allow update: if isOwner()
-        || (isOwnUid(uid)
-          && request.resource.data.uid == resource.data.uid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'displayName',
-              'discordUsername',
-              'profileCompletion',
-              'publicVerificationEnabled',
-              'updatedAt'
-            ]));
-
+      allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && isOwnUid(uid) && request.resource.data.uid == request.auth.uid && validOwnCustomerId(request.resource.data.customerId));
+      allow update: if isOwner() || (isOwnUid(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.customerId == resource.data.customerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','discordUsername','profileCompletion','publicVerificationEnabled','updatedAt']));
       allow delete: if isOwner();
     }
-
-    match /customerPrivate/{uid} {
-      allow read: if isOwner() || isOwnUid(uid);
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && isOwnUid(uid)
-          && request.resource.data.uid == request.auth.uid
-          && validOwnCustomerId(request.resource.data.customerId));
-
-      allow update: if isOwner()
-        || (isOwnUid(uid)
-          && request.resource.data.uid == resource.data.uid
-          && request.resource.data.customerId == resource.data.customerId);
-
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // CUSTOMER PROGRESSION
-    // ============================================================
-
-    match /creditProfiles/{uid} {
-      allow read: if isOwner() || isLendingStaff() || isOwnUid(uid);
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && isOwnUid(uid)
-          && validOwnCustomerId(request.resource.data.customerId));
-      allow update, delete: if isOwner();
-    }
-
-    match /academyProfiles/{uid} {
-      allow read: if isOwner() || isAcademyManager() || isOwnUid(uid);
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && isOwnUid(uid)
-          && validOwnCustomerId(request.resource.data.customerId));
-      allow update: if isOwner()
-        || isAcademyManager()
-        || (isOwnUid(uid)
-          && request.resource.data.uid == resource.data.uid
-          && request.resource.data.customerId == resource.data.customerId);
-      allow delete: if isOwner();
-    }
-
-    match /achievementProfiles/{uid} {
-      allow read: if isOwner() || isOwnUid(uid);
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && isOwnUid(uid)
-          && validOwnCustomerId(request.resource.data.customerId));
-      allow update, delete: if isOwner();
-    }
-
-    // ============================================================
-    // BANKING
-    // ============================================================
+    match /customerPrivate/{uid} { allow read: if isOwner() || isOwnUid(uid); allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && isOwnUid(uid) && request.resource.data.uid == request.auth.uid && validOwnCustomerId(request.resource.data.customerId)); allow update: if isOwner() || (isOwnUid(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.customerId == resource.data.customerId); allow delete: if isOwner(); }
+    match /creditProfiles/{uid} { allow read: if isOwner() || isLendingStaff() || isOwnUid(uid); allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && isOwnUid(uid) && validOwnCustomerId(request.resource.data.customerId)); allow update, delete: if isOwner(); }
+    match /academyProfiles/{uid} { allow read: if isOwner() || isAcademyManager() || isOwnUid(uid); allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && isOwnUid(uid) && validOwnCustomerId(request.resource.data.customerId)); allow update: if isOwner() || isAcademyManager() || (isOwnUid(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.customerId == resource.data.customerId); allow delete: if isOwner(); }
+    match /achievementProfiles/{uid} { allow read: if isOwner() || isOwnUid(uid); allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && isOwnUid(uid) && validOwnCustomerId(request.resource.data.customerId)); allow update, delete: if isOwner(); }
 
     match /accounts/{accountId} {
-      allow read: if isOwner()
-        || ownsResource()
-        || isServicingStaff()
-        || isEconomyManager();
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && ownsNewResource()
-          && validOwnCustomerId(request.resource.data.customerId)
-          && request.resource.data.type in ['checking', 'savings']
-          && request.resource.data.status == 'active'
-          && request.resource.data.balance >= 0
-          && request.resource.data.availableBalance == request.resource.data.balance);
-
-      allow update: if isOwner()
-        || isServicingStaff()
-        || isEconomyManager()
-        || (ownsResource()
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.type == resource.data.type
-          && request.resource.data.status == resource.data.status
-          && request.resource.data.balance >= 0
-          && request.resource.data.availableBalance >= 0
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'balance',
-              'availableBalance',
-              'lastOperationId',
-              'updatedAt'
-            ]));
-
+      allow read: if isOwner() || ownsResource() || isServicingStaff() || isEconomyManager();
+      allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && ownsNewResource() && validOwnCustomerId(request.resource.data.customerId) && request.resource.data.type in ['checking','savings'] && request.resource.data.status == 'active' && request.resource.data.balance >= 0 && request.resource.data.availableBalance == request.resource.data.balance);
+      allow update: if isOwner() || isServicingStaff() || isEconomyManager() || (ownsResource() && request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.customerId == resource.data.customerId && request.resource.data.type == resource.data.type && request.resource.data.status == resource.data.status && request.resource.data.balance >= 0 && request.resource.data.availableBalance >= 0 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance','availableBalance','lastOperationId','updatedAt']));
       allow delete: if isOwner();
     }
-
-    match /transactions/{transactionId} {
-      allow read: if isOwner()
-        || ownsResource()
-        || isServicingStaff()
-        || isEconomyManager();
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || (isNewCustomerBatch()
-          && ownsNewResource()
-          && validOwnCustomerId(request.resource.data.customerId)
-          && request.resource.data.status == 'completed')
-        || (signedIn()
-          && ownsNewResource()
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.amount >= 0
-          && request.resource.data.status == 'completed');
-
-      allow update, delete: if isOwner();
-    }
-
-    match /bankingOperations/{operationId} {
-      allow read: if isOwner() || ownsResource();
-
-      allow create: if isOwner()
-        || (signedIn()
-          && ownsNewResource()
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.amount > 0
-          && request.resource.data.status == 'completed'
-          && immutableNewRecord());
-
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // NOTIFICATIONS AND MESSAGES
-    // ============================================================
-
-    match /notifications/{notificationId} {
-      allow read: if isOwner()
-        || (signedIn() && resource.data.recipientUid == request.auth.uid);
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || isStaff()
-        || (isNewCustomerBatch()
-          && request.resource.data.recipientUid == request.auth.uid);
-
-      allow update: if signedIn()
-        && resource.data.recipientUid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['read', 'readAt']);
-
-      allow delete: if isOwner();
-    }
-
-    match /messages/{messageId} {
-      allow read: if isOwner()
-        || (signedIn()
-          && (resource.data.senderUid == request.auth.uid
-            || resource.data.recipientUid == request.auth.uid))
-        || isStaff();
-
-      allow create: if signedIn()
-        && request.resource.data.senderUid == request.auth.uid;
-
-      allow update: if signedIn()
-        && resource.data.recipientUid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['read', 'readAt']);
-
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // APPLICATIONS, LENDING, AND UNDERWRITING
-    // ============================================================
+    match /transactions/{transactionId} { allow read: if isOwner() || ownsResource() || isServicingStaff() || isEconomyManager(); allow create: if isInitialBootstrap() || isOwner() || (isNewCustomerBatch() && ownsNewResource() && validOwnCustomerId(request.resource.data.customerId) && request.resource.data.status == 'completed') || (signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.amount >= 0 && request.resource.data.status == 'completed'); allow update, delete: if isOwner(); }
+    match /bankingOperations/{operationId} { allow read: if isOwner() || ownsResource(); allow create: if isOwner() || (signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.amount > 0 && request.resource.data.status == 'completed' && immutableNewRecord()); allow update, delete: if false; }
+    match /notifications/{notificationId} { allow read: if isOwner() || (signedIn() && resource.data.recipientUid == request.auth.uid); allow create: if isInitialBootstrap() || isOwner() || isStaff() || (isNewCustomerBatch() && request.resource.data.recipientUid == request.auth.uid); allow update: if signedIn() && resource.data.recipientUid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','readAt']); allow delete: if isOwner(); }
+    match /messages/{messageId} { allow read: if isOwner() || (signedIn() && (resource.data.senderUid == request.auth.uid || resource.data.recipientUid == request.auth.uid)) || isStaff(); allow create: if signedIn() && request.resource.data.senderUid == request.auth.uid; allow update: if signedIn() && resource.data.recipientUid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','readAt']); allow delete: if isOwner(); }
 
     match /applications/{applicationId} {
-      allow read: if isOwner()
-        || isLendingStaff()
-        || isHRStaff()
-        || (signedIn() && resource.data.applicantUid == request.auth.uid);
-
-      allow create: if isOwner()
-        || (signedIn()
-          && request.resource.data.applicantUid == request.auth.uid
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.uploadsAllowed == false
-          && request.resource.data.status == 'draft');
-
-      allow update: if isOwner()
-        || (isLendingStaff() && resource.data.category == 'financial')
-        || (isHRStaff() && resource.data.category == 'staff')
-        || (signedIn()
-          && resource.data.applicantUid == request.auth.uid
-          && request.resource.data.applicantUid == resource.data.applicantUid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.applicationId == resource.data.applicationId
-          && request.resource.data.status in [
-            'draft',
-            'submitted',
-            'information-requested',
-            'withdrawn',
-            'accepted',
-            'offer-declined'
-          ]);
-
-      allow delete: if isOwner()
-        || (signedIn()
-          && resource.data.applicantUid == request.auth.uid
-          && resource.data.status == 'draft');
+      allow read: if isOwner() || isLendingStaff() || isHRStaff() || (signedIn() && resource.data.applicantUid == request.auth.uid);
+      allow create: if isOwner() || (signedIn() && request.resource.data.applicantUid == request.auth.uid && request.resource.data.customerId == currentCustomerId() && request.resource.data.uploadsAllowed == false && request.resource.data.status == 'draft');
+      allow update: if isOwner() || (isLendingStaff() && resource.data.category == 'financial') || (isHRStaff() && resource.data.category == 'staff') || (signedIn() && resource.data.applicantUid == request.auth.uid && request.resource.data.applicantUid == resource.data.applicantUid && request.resource.data.customerId == resource.data.customerId && request.resource.data.applicationId == resource.data.applicationId && request.resource.data.status in ['draft','submitted','information-requested','withdrawn','accepted','offer-declined']);
+      allow delete: if isOwner() || (signedIn() && resource.data.applicantUid == request.auth.uid && resource.data.status == 'draft');
     }
-
-    match /lendingDecisions/{decisionId} {
-      allow read: if isOwner()
-        || isLendingStaff()
-        || (signedIn() && resource.data.applicantUid == request.auth.uid);
-
-      allow create: if isLendingStaff() && immutableNewRecord();
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // LOANS, PAYMENTS, AND COLLECTIONS
-    // ============================================================
+    match /lendingDecisions/{decisionId} { allow read: if isOwner() || isLendingStaff() || (signedIn() && resource.data.applicantUid == request.auth.uid); allow create: if isLendingStaff() && immutableNewRecord(); allow update, delete: if false; }
 
     match /loans/{loanId} {
-      allow read: if isOwner()
-        || isServicingStaff()
-        || ownsResource();
-
-      allow create: if isOwner()
-        || (signedIn()
-          && ownsNewResource()
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.status == 'pending-activation');
-
-      allow update: if isOwner()
-        || isServicingStaff()
-        || (ownsResource()
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.loanId == resource.data.loanId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'remainingPrincipal',
-              'totalPaid',
-              'paymentsRemaining',
-              'nextDueDate',
-              'status',
-              'servicingStatus',
-              'delinquencyStage',
-              'lastPaymentAt',
-              'lastOperationId',
-              'assistanceRequest',
-              'updatedAt'
-            ]));
-
+      allow read: if isOwner() || isServicingStaff() || ownsResource();
+      allow create: if isOwner() || isLendingStaff() || (signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.status == 'pending-activation');
+      allow update: if isOwner() || isServicingStaff() || (ownsResource() && request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.customerId == resource.data.customerId && request.resource.data.loanId == resource.data.loanId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remainingPrincipal','totalPaid','paymentsRemaining','nextDueDate','status','servicingStatus','customerAcceptanceStatus','acceptedAt','declinedAt','delinquencyStage','lastPaymentAt','lastOperationId','assistanceRequest','updatedAt']));
       allow delete: if isOwner();
     }
+    match /loanOperations/{operationId} { allow read: if isOwner() || isServicingStaff() || ownsResource(); allow create: if isOwner() || (signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.amount > 0 && immutableNewRecord()); allow update, delete: if false; }
+    match /loanPayments/{paymentId} { allow read: if isOwner() || isServicingStaff() || ownsResource(); allow create: if isOwner() || (signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.amount > 0 && request.resource.data.status == 'completed'); allow update, delete: if false; }
+    match /loanEvents/{eventId} { allow read: if isOwner() || isServicingStaff() || ownsResource(); allow create: if isServicingStaff() && immutableNewRecord(); allow update, delete: if false; }
 
-    match /loanOperations/{operationId} {
-      allow read: if isOwner()
-        || isServicingStaff()
-        || ownsResource();
-
-      allow create: if isOwner()
-        || (signedIn()
-          && ownsNewResource()
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.amount > 0
-          && immutableNewRecord());
-
-      allow update, delete: if false;
-    }
-
-    match /loanPayments/{paymentId} {
-      allow read: if isOwner()
-        || isServicingStaff()
-        || ownsResource();
-
-      allow create: if isOwner()
-        || (signedIn()
-          && ownsNewResource()
-          && request.resource.data.customerId == currentCustomerId()
-          && request.resource.data.amount > 0
-          && request.resource.data.status == 'completed');
-
-      allow update, delete: if false;
-    }
-
-    match /loanEvents/{eventId} {
-      allow read: if isOwner()
-        || isServicingStaff()
-        || ownsResource();
-
-      allow create: if isServicingStaff() && immutableNewRecord();
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // ORGANIZATION, STAFF, AND DEPARTMENTS
-    // ============================================================
-
-    match /branches/{branchId} {
-      allow read: if signedIn();
-      allow create: if isInitialBootstrap() || isOwner();
-      allow update, delete: if isOwner();
-    }
-
-    match /departments/{departmentId} {
-      allow read: if signedIn();
-      allow create: if isInitialBootstrap() || isOwner();
-      allow update, delete: if isOwner();
-    }
-
-    match /ranks/{rankId} {
-      allow read: if signedIn();
-      allow create: if isInitialBootstrap() || isOwner();
-      allow update, delete: if isOwner();
-    }
-
+    match /branches/{branchId} { allow read: if signedIn(); allow create: if isInitialBootstrap() || isOwner(); allow update, delete: if isOwner(); }
+    match /departments/{departmentId} { allow read: if signedIn(); allow create: if isInitialBootstrap() || isOwner(); allow update, delete: if isOwner(); }
+    match /ranks/{rankId} { allow read: if signedIn(); allow create: if isInitialBootstrap() || isOwner(); allow update, delete: if isOwner(); }
     match /staffProfiles/{uid} {
       allow read: if isStaff();
       allow create: if isInitialBootstrap() || isOwner();
-      allow update, delete: if isOwner();
-    }
-
-    match /staffPermissions/{uid} {
-      allow read: if isOwner()
-        || isStaffManager()
-        || isOwnUid(uid);
-
-      allow create: if isInitialBootstrap() || isOwner();
-
-      allow update: if (isOwner() || isStaffManager())
-        && uid != ownerUid();
-
+      allow update: if isOwner() || (isStaffManager() && uid != ownerUid() && uid != request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rankId','rankName','rankLevel','position','departmentId','departmentName','branchId','branchName','lastCareerAction','lastCareerReason','lastCareerActionBy','lastCareerActionAt','updatedAt']));
       allow delete: if isOwner() && uid != ownerUid();
     }
-
-    match /staffAppointments/{appointmentId} {
-      allow read: if isOwner()
-        || isHRStaff()
-        || (signedIn() && resource.data.staffUid == request.auth.uid);
-
-      allow create: if isOwner() && immutableNewRecord();
-      allow update, delete: if false;
-    }
-
-    match /staffTasks/{taskId} {
-      allow read: if isStaff()
-        && (resource.data.assigneeUid == request.auth.uid
-          || isStaffManager());
-
-      allow create: if isStaffManager()
-        && request.resource.data.assignedBy == request.auth.uid
-        && request.resource.data.status == 'assigned';
-
-      allow update: if isStaffManager()
-        || (signedIn()
-          && resource.data.assigneeUid == request.auth.uid
-          && request.resource.data.assigneeUid == resource.data.assigneeUid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt']));
-
-      allow delete: if isOwner();
-    }
-
-    match /policies/{policyId} {
-      allow read: if isStaff();
-      allow create: if isStaffManager()
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isOwner();
-    }
-
-    match /staffAnnouncements/{announcementId} {
-      allow read: if isStaff();
-      allow create: if isStaffManager()
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isOwner();
-    }
-
-    // ============================================================
-    // FINANCIAL ACADEMY
-    // ============================================================
-
-    match /academyCourses/{courseId} {
-      allow read: if signedIn();
-      allow create, update: if isAcademyManager();
-      allow delete: if isOwner();
-    }
-
-    match /academyLessons/{lessonId} {
-      allow read: if signedIn();
-      allow create, update: if isAcademyManager();
-      allow delete: if isOwner();
-    }
-
-    match /academyEnrollments/{enrollmentId} {
-      allow read: if isAcademyManager()
-        || (signedIn() && resource.data.userUid == request.auth.uid);
-
-      allow create: if signedIn()
-        && request.resource.data.userUid == request.auth.uid;
-
-      allow update: if isAcademyManager()
-        || (signedIn()
-          && resource.data.userUid == request.auth.uid
-          && request.resource.data.userUid == resource.data.userUid);
-
-      allow delete: if isOwner();
-    }
-
-    match /academyCertificates/{certificateId} {
-      allow read: if isAcademyManager()
-        || (signedIn() && resource.data.holderUid == request.auth.uid);
-
-      allow create: if isAcademyManager()
-        || (signedIn()
-          && request.resource.data.holderUid == request.auth.uid
-          && immutableNewRecord());
-
-      allow update, delete: if false;
-    }
-
-    match /trainingAssignments/{assignmentId} {
-      allow read: if isOwner()
-        || isAcademyManager()
-        || (signedIn() && resource.data.staffUid == request.auth.uid);
-
-      allow create, update: if isAcademyManager();
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // CAREERS, REVIEWS, AND BRANCH PERFORMANCE
-    // ============================================================
-
-    match /performanceReviews/{reviewId} {
-      allow read: if isOwner()
-        || isStaffManager()
-        || (signedIn() && resource.data.staffUid == request.auth.uid);
-
-      allow create: if isStaffManager()
-        && request.resource.data.reviewedBy == request.auth.uid
-        && immutableNewRecord();
-
-      allow update, delete: if false;
-    }
-
-    match /careerRequests/{requestId} {
-      allow read: if isOwner()
-        || isStaffManager()
-        || (signedIn() && resource.data.staffUid == request.auth.uid);
-
-      allow create: if isStaff()
-        && request.resource.data.staffUid == request.auth.uid
-        && request.resource.data.status == 'submitted';
-
-      allow update: if isStaffManager()
-        && resource.data.status == 'submitted'
-        && request.resource.data.status in ['approved', 'denied'];
-
-      allow delete: if isOwner();
-    }
-
-    match /careerEvents/{eventId} {
-      allow read: if isOwner()
-        || isStaffManager()
-        || (signedIn() && resource.data.staffUid == request.auth.uid);
-
-      allow create: if isStaffManager() && immutableNewRecord();
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // BUSINESS AND COMMERCIAL ECONOMY
-    // ============================================================
-
-    match /businesses/{businessId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.status == 'active'
-        && request.resource.data.level == 'startup'
-        && request.resource.data.cashReserves >= 0
-        && request.resource.data.cashReserves <= 100000;
-
-      allow update: if isEconomyManager()
-        || (ownsResource()
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.customerId == resource.data.customerId
-          && request.resource.data.businessId == resource.data.businessId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              'revenue',
-              'expenses',
-              'cashReserves',
-              'employeeCount',
-              'updatedAt'
-            ]));
-
-      allow delete: if isOwner();
-    }
-
-    match /businessMembers/{memberId} {
-      allow read: if isEconomyManager()
-        || (signedIn()
-          && (resource.data.userUid == request.auth.uid
-            || resource.data.ownerUid == request.auth.uid));
-      allow create, update: if isEconomyManager()
-        || (signedIn() && request.resource.data.ownerUid == request.auth.uid);
-      allow delete: if isOwner()
-        || (signedIn() && resource.data.ownerUid == request.auth.uid);
-    }
-
-    match /businessTransactions/{transactionId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.amount > 0
-        && request.resource.data.amount <= 100000
-        && request.resource.data.type in ['revenue', 'expense']
-        && immutableNewRecord();
-
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // PROPERTY
-    // ============================================================
-
-    match /properties/{propertyId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.status == 'owned'
-        && request.resource.data.purchasePrice > 0
-        && request.resource.data.purchasePrice <= 100000000;
-
-      allow update: if isEconomyManager();
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // INVESTMENTS
-    // ============================================================
-
-    match /investments/{investmentId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.principal > 0
-        && request.resource.data.principal <= 1000000
-        && request.resource.data.currentValue == request.resource.data.principal
-        && request.resource.data.status == 'active';
-
-      allow update: if isEconomyManager();
-      allow delete: if isOwner();
-    }
-
-    match /investmentOperations/{operationId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.type == 'investment-purchase'
-        && request.resource.data.amount > 0
-        && request.resource.data.amount <= 1000000
-        && request.resource.data.status == 'completed'
-        && immutableNewRecord();
-
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // INSURANCE
-    // ============================================================
-
-    match /insurancePolicies/{policyId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.coverageLimit > 0
-        && request.resource.data.premium >= 0
-        && request.resource.data.status == 'active';
-
-      allow update: if isEconomyManager();
-      allow delete: if isOwner();
-    }
-
-    match /insuranceClaims/{claimId} {
-      allow read: if isEconomyManager() || ownsResource();
-
-      allow create: if signedIn()
-        && ownsNewResource()
-        && request.resource.data.customerId == currentCustomerId()
-        && request.resource.data.status == 'submitted'
-        && request.resource.data.uploadsAllowed == false
-        && request.resource.data.requestedAmount > 0;
-
-      allow update: if isEconomyManager();
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // SUPPORT, FRAUD, COMPLIANCE, AUDIT, AND TECHNOLOGY
-    // ============================================================
-
-    match /supportTickets/{ticketId} {
-      allow read: if isOwner()
-        || hasPermission(['support.view', 'support.manage'])
-        || (signedIn() && resource.data.customerUid == request.auth.uid);
-
-      allow create: if signedIn()
-        && request.resource.data.customerUid == request.auth.uid
-        && request.resource.data.uploadsAllowed == false;
-
-      allow update: if isOwner()
-        || hasPermission(['support.manage'])
-        || (signedIn()
-          && resource.data.customerUid == request.auth.uid
-          && request.resource.data.customerUid == resource.data.customerUid);
-
-      allow delete: if isOwner();
-    }
-
-    match /fraudAlerts/{alertId} {
-      allow read, create, update: if isOwner()
-        || hasPermission(['fraud.view', 'investigations.manage']);
-      allow delete: if isOwner();
-    }
-
-    match /investigations/{caseId} {
-      allow read, create, update: if isOwner()
-        || hasPermission(['fraud.view', 'investigations.manage']);
-      allow delete: if isOwner();
-    }
-
-    match /complianceCases/{caseId} {
-      allow read, create, update: if isOwner()
-        || hasPermission(['compliance.view', 'compliance.manage']);
-      allow delete: if isOwner();
-    }
-
-    match /auditFindings/{findingId} {
-      allow read, create: if isAuditStaff();
-      allow update: if isAuditStaff();
-      allow delete: if isOwner();
-    }
-
-    match /technicalTickets/{ticketId} {
-      allow read: if isTechnologyStaff()
-        || (signedIn() && resource.data.requesterUid == request.auth.uid);
-      allow create: if signedIn()
-        && request.resource.data.requesterUid == request.auth.uid
-        && request.resource.data.uploadsAllowed == false;
-      allow update: if isTechnologyStaff();
-      allow delete: if isOwner();
-    }
-
-    // ============================================================
-    // OWNER CONTROL CENTER
-    // ============================================================
-
-    match /economicSettings/{settingId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner();
-    }
-
-    match /institutionEvents/{eventId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner();
-    }
-
-    match /achievements/{achievementId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner();
-    }
-
-    match /ownerOverrides/{overrideId} {
-      allow read: if isOwner();
-
-      allow create: if isOwner()
-        && request.resource.data.actorUid == request.auth.uid
-        && immutableNewRecord()
-        && reasonProvided();
-
-      allow update, delete: if false;
-    }
-
-    match /auditLogs/{auditId} {
-      allow read: if isAuditStaff();
-
-      allow create: if isInitialBootstrap()
-        || isOwner()
-        || isStaff()
-        || (isNewCustomerBatch()
-          && request.resource.data.actorUid == request.auth.uid
-          && immutableNewRecord());
-
-      allow update, delete: if false;
-    }
-
-    // ============================================================
-    // DOCUMENT METADATA ONLY — NO FILE UPLOADS
-    // ============================================================
-
-    match /documents/{documentId} {
-      allow read: if isOwner()
-        || isStaff()
-        || (signedIn() && resource.data.ownerUid == request.auth.uid);
-      allow create, update, delete: if isOwner();
-    }
-
-    // ============================================================
-    // DENY EVERYTHING NOT EXPLICITLY DEFINED ABOVE
-    // ============================================================
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /staffPermissions/{uid} { allow read: if isOwner() || isStaffManager() || isOwnUid(uid); allow create: if isInitialBootstrap() || isOwner(); allow update: if (isOwner() || isStaffManager()) && uid != ownerUid(); allow delete: if isOwner() && uid != ownerUid(); }
+    match /staffAppointments/{appointmentId} { allow read: if isOwner() || isHRStaff() || (signedIn() && resource.data.staffUid == request.auth.uid); allow create: if isOwner() && immutableNewRecord(); allow update, delete: if false; }
+    match /staffTasks/{taskId} { allow read: if isStaff() && (resource.data.assigneeUid == request.auth.uid || isStaffManager()); allow create: if isStaffManager() && request.resource.data.assignedBy == request.auth.uid && request.resource.data.status == 'assigned'; allow update: if isStaffManager() || (signedIn() && resource.data.assigneeUid == request.auth.uid && request.resource.data.assigneeUid == resource.data.assigneeUid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','completionNote','completedAt','updatedAt'])); allow delete: if isOwner(); }
+    match /policies/{policyId} { allow read: if isStaff(); allow create: if isStaffManager() && request.resource.data.createdBy == request.auth.uid; allow update, delete: if isOwner(); }
+    match /staffAnnouncements/{announcementId} { allow read: if isStaff(); allow create: if isStaffManager() && request.resource.data.createdBy == request.auth.uid; allow update, delete: if isOwner(); }
+
+    match /academyCourses/{courseId} { allow read: if signedIn(); allow create, update: if isAcademyManager(); allow delete: if isOwner(); }
+    match /academyLessons/{lessonId} { allow read: if signedIn(); allow create, update: if isAcademyManager(); allow delete: if isOwner(); }
+    match /academyEnrollments/{enrollmentId} { allow read: if isAcademyManager() || (signedIn() && resource.data.userUid == request.auth.uid); allow create: if signedIn() && request.resource.data.userUid == request.auth.uid; allow update: if isAcademyManager() || (signedIn() && resource.data.userUid == request.auth.uid && request.resource.data.userUid == resource.data.userUid); allow delete: if isOwner(); }
+    match /academyCertificates/{certificateId} { allow read: if isAcademyManager() || (signedIn() && resource.data.holderUid == request.auth.uid); allow create: if isAcademyManager() || (signedIn() && request.resource.data.holderUid == request.auth.uid && immutableNewRecord()); allow update, delete: if false; }
+    match /trainingAssignments/{assignmentId} { allow read: if isOwner() || isAcademyManager() || (signedIn() && resource.data.staffUid == request.auth.uid); allow create, update: if isAcademyManager(); allow delete: if isOwner(); }
+
+    match /performanceReviews/{reviewId} { allow read: if isOwner() || isStaffManager() || (signedIn() && resource.data.staffUid == request.auth.uid); allow create: if isStaffManager() && request.resource.data.reviewedBy == request.auth.uid && immutableNewRecord(); allow update, delete: if false; }
+    match /careerRequests/{requestId} { allow read: if isOwner() || isStaffManager() || (signedIn() && resource.data.staffUid == request.auth.uid); allow create: if isStaff() && request.resource.data.staffUid == request.auth.uid && request.resource.data.status == 'submitted'; allow update: if isStaffManager() && resource.data.status == 'submitted' && request.resource.data.status in ['approved','denied']; allow delete: if isOwner(); }
+    match /careerEvents/{eventId} { allow read: if isOwner() || isStaffManager() || (signedIn() && resource.data.staffUid == request.auth.uid); allow create: if isStaffManager() && immutableNewRecord(); allow update, delete: if false; }
+
+    match /businesses/{businessId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.status == 'active' && request.resource.data.level == 'startup' && request.resource.data.cashReserves >= 0 && request.resource.data.cashReserves <= 100000; allow update: if isEconomyManager() || (ownsResource() && request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.customerId == resource.data.customerId && request.resource.data.businessId == resource.data.businessId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revenue','expenses','cashReserves','employeeCount','updatedAt'])); allow delete: if isOwner(); }
+    match /businessMembers/{memberId} { allow read: if isEconomyManager() || (signedIn() && (resource.data.userUid == request.auth.uid || resource.data.ownerUid == request.auth.uid)); allow create, update: if isEconomyManager() || (signedIn() && request.resource.data.ownerUid == request.auth.uid); allow delete: if isOwner() || (signedIn() && resource.data.ownerUid == request.auth.uid); }
+    match /businessTransactions/{transactionId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.amount > 0 && request.resource.data.amount <= 100000 && request.resource.data.type in ['revenue','expense'] && immutableNewRecord(); allow update, delete: if false; }
+    match /properties/{propertyId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.status == 'owned' && request.resource.data.purchasePrice > 0 && request.resource.data.purchasePrice <= 100000000; allow update: if isEconomyManager(); allow delete: if isOwner(); }
+    match /investments/{investmentId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.principal > 0 && request.resource.data.principal <= 1000000 && request.resource.data.currentValue == request.resource.data.principal && request.resource.data.status == 'active'; allow update: if isEconomyManager(); allow delete: if isOwner(); }
+    match /investmentOperations/{operationId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.type == 'investment-purchase' && request.resource.data.amount > 0 && request.resource.data.amount <= 1000000 && request.resource.data.status == 'completed' && immutableNewRecord(); allow update, delete: if false; }
+    match /insurancePolicies/{policyId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.coverageLimit > 0 && request.resource.data.premium >= 0 && request.resource.data.status == 'active'; allow update: if isEconomyManager(); allow delete: if isOwner(); }
+    match /insuranceClaims/{claimId} { allow read: if isEconomyManager() || ownsResource(); allow create: if signedIn() && ownsNewResource() && request.resource.data.customerId == currentCustomerId() && request.resource.data.status == 'submitted' && request.resource.data.uploadsAllowed == false && request.resource.data.requestedAmount > 0; allow update: if isEconomyManager(); allow delete: if isOwner(); }
+
+    match /supportTickets/{ticketId} { allow read: if isOwner() || hasPermission(['support.view','support.manage']) || (signedIn() && resource.data.customerUid == request.auth.uid); allow create: if signedIn() && request.resource.data.customerUid == request.auth.uid && request.resource.data.uploadsAllowed == false; allow update: if isOwner() || hasPermission(['support.manage']) || (signedIn() && resource.data.customerUid == request.auth.uid && request.resource.data.customerUid == resource.data.customerUid); allow delete: if isOwner(); }
+    match /fraudAlerts/{alertId} { allow read, create, update: if isOwner() || hasPermission(['fraud.view','investigations.manage']); allow delete: if isOwner(); }
+    match /investigations/{caseId} { allow read, create, update: if isOwner() || hasPermission(['fraud.view','investigations.manage']); allow delete: if isOwner(); }
+    match /complianceCases/{caseId} { allow read, create, update: if isOwner() || hasPermission(['compliance.view','compliance.manage']); allow delete: if isOwner(); }
+    match /auditFindings/{findingId} { allow read, create, update: if isAuditStaff(); allow delete: if isOwner(); }
+    match /technicalTickets/{ticketId} { allow read: if isTechnologyStaff() || (signedIn() && resource.data.requesterUid == request.auth.uid); allow create: if signedIn() && request.resource.data.requesterUid == request.auth.uid && request.resource.data.uploadsAllowed == false; allow update: if isTechnologyStaff(); allow delete: if isOwner(); }
+
+    match /economicSettings/{settingId} { allow read: if signedIn(); allow create, update, delete: if isOwner(); }
+    match /institutionEvents/{eventId} { allow read: if signedIn(); allow create, update, delete: if isOwner(); }
+    match /achievements/{achievementId} { allow read: if signedIn(); allow create, update, delete: if isOwner(); }
+    match /ownerOverrides/{overrideId} { allow read: if isOwner(); allow create: if isOwner() && request.resource.data.actorUid == request.auth.uid && immutableNewRecord() && reasonProvided(); allow update, delete: if false; }
+    match /auditLogs/{auditId} { allow read: if isAuditStaff(); allow create: if isInitialBootstrap() || isOwner() || isStaff() || (isNewCustomerBatch() && request.resource.data.actorUid == request.auth.uid && immutableNewRecord()); allow update, delete: if false; }
+    match /documents/{documentId} { allow read: if isOwner() || isStaff() || (signedIn() && resource.data.ownerUid == request.auth.uid); allow create, update, delete: if isOwner(); }
+    match /{document=**} { allow read, write: if false; }
   }
 }
