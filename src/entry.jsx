@@ -49,6 +49,7 @@ function installPortalNavigation() {
     const nav = document.querySelector('.portal-sidebar nav');
     if (!nav) return;
     const links = [
+      ['staffmanagement', '/staff-management', '⚙', 'Staff Management'],
       ['phase14', '/owner-control', '◆', 'Owner Control Center'],
       ['phase13', '/economy-center', '◇', 'Business & Economy'],
       ['phase12', '/career-center', '▲', 'Careers & Branches'],
@@ -97,6 +98,7 @@ async function start() {
     if (appPath === '/loans') return import('./servicing/servicingEntry.jsx');
     if (appPath === '/careers') return import('./staffing/staffingEntry.jsx');
     if (appPath === '/staff') return import('./staff/staffEntry.jsx');
+    if (appPath === '/staff-management') return import('./staffManagement/staffManagementEntry.jsx');
     if (appPath === '/departments') return import('./departments/departmentEntry.jsx');
     if (appPath === '/academy-center') return import('./academy/academyEntry.jsx');
     if (appPath === '/career-center') return import('./careers/careerEntry.jsx');
