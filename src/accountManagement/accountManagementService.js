@@ -6,6 +6,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  setDoc,
   where,
 } from 'firebase/firestore';
 
@@ -166,6 +167,65 @@ export async function saveAccountManagementChanges(db, ownerUid, target, form, r
       action: 'account.management.updated',
       targetType: 'account',
       targetId: oldUser.customerId || target.uid,
+      reason: cleanReason,
+      immutable: true,
+      createdAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function saveAccountPermissions(db, ownerUid, target, permissions, reason) {
+  const cleanReason = String(reason || '').trim();
+  if (cleanReason.length < 10) throw new Error('Enter a permission-change reason of at least 10 characters.');
+  if (!target?.uid) throw new Error('Choose an account first.');
+
+  const bootstrapRef = doc(db, 'system', 'bootstrap');
+  const permissionRef = doc(db, 'staffPermissions', target.uid);
+  const auditRef = doc(collection(db, 'auditLogs'));
+  const overrideRef = doc(collection(db, 'ownerOverrides'));
+  const normalized = [...new Set((permissions || []).map((item) => String(item).trim()).filter(Boolean))].sort();
+
+  await runTransaction(db, async (tx) => {
+    const [bootstrapSnap, permissionSnap] = await Promise.all([
+      tx.get(bootstrapRef),
+      tx.get(permissionRef),
+    ]);
+
+    if (!bootstrapSnap.exists() || bootstrapSnap.data().ownerUid !== ownerUid) throw new Error('Owner authority is required.');
+    if (bootstrapSnap.data().ownerUid === target.uid) throw new Error('The Founder & Owner permission package is protected and cannot be replaced.');
+
+    const previous = permissionSnap.exists() ? permissionSnap.data().permissions || [] : [];
+
+    tx.set(permissionRef, {
+      uid: target.uid,
+      permissions: normalized,
+      isOwner: false,
+      globalOverride: false,
+      updatedAt: serverTimestamp(),
+      updatedBy: ownerUid,
+    }, { merge: true });
+
+    tx.set(overrideRef, {
+      overrideId: overrideRef.id,
+      actorUid: ownerUid,
+      targetUid: target.uid,
+      targetCollection: 'staffPermissions',
+      targetRecordId: target.uid,
+      field: 'permissions',
+      previousValue: previous,
+      replacementValue: normalized,
+      reason: cleanReason,
+      immutable: true,
+      createdAt: serverTimestamp(),
+    });
+
+    tx.set(auditRef, {
+      auditId: auditRef.id,
+      actorUid: ownerUid,
+      actorType: 'owner',
+      action: 'account.permissions.updated',
+      targetType: 'staff-permissions',
+      targetId: target.uid,
       reason: cleanReason,
       immutable: true,
       createdAt: serverTimestamp(),
