@@ -2,7 +2,7 @@ import {addDoc,collection,doc,getDoc,getDocs,increment,runTransaction,serverTime
 const map=s=>s.docs.map(d=>({id:d.id,...d.data()}));
 const code=p=>`${p}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
 export const ECONOMIC_CLIMATES=['stable-growth','rapid-growth','inflation','recession','housing-boom','housing-decline','credit-tightening','business-expansion','investment-surge'];
-export const PROPERTY_INCIDENT_TYPES=['fire','flood','storm','tornado','earthquake','burglary','vandalism','structural-failure','utility-failure','accident','other'];
+export const PROPERTY_INCIDENT_TYPES=['fire','flood','storm','tornado','earthquake','burglary','vandalism','structural-failure','utility-failure','accident','equipment-failure','supply-disruption','cyber-incident','other'];
 export const BUSINESS_INCIDENT_TYPES=['fire','flood','storm','burglary','vandalism','equipment-failure','supply-disruption','cyber-incident','utility-failure','accident','other'];
 export const PROPERTY_SEVERITIES=['minor','moderate','major','severe','catastrophic'];
 export const ECONOMY_EVENT_TARGETS=['properties','businesses','investments'];
@@ -14,18 +14,23 @@ export async function loadOwnerCenter(db,uid){
  const names=['users','accounts','staffProfiles','applications','loans','businesses','properties','investments','insuranceClaims','insurancePolicies','branches','departments','auditLogs','ownerOverrides','institutionEvents','achievements','bankingOperations'];
  const results=await Promise.all(names.map(async n=>{try{return map(await getDocs(collection(db,n)))}catch{return[]}}));
  const data=Object.fromEntries(names.map((n,i)=>[n,results[i]]));
+ const rawProperties=data.properties;
+ const rawBusinesses=data.businesses;
  const soldPropertyIds=new Set(data.bankingOperations.filter(x=>x.type==='property_sale').map(x=>x.targetDocId));
  const shutdownBusinessIds=new Set(data.bankingOperations.filter(x=>x.type==='business_shutdown').map(x=>x.targetDocId));
- data.activeProperties=data.properties.filter(x=>!soldPropertyIds.has(x.id));
- data.activeBusinesses=data.businesses.filter(x=>!shutdownBusinessIds.has(x.id));
+ data.activeProperties=rawProperties.filter(x=>!soldPropertyIds.has(x.id));
+ data.activeBusinesses=rawBusinesses.filter(x=>!shutdownBusinessIds.has(x.id));
  const usersByUid=Object.fromEntries(data.users.map(x=>[x.uid||x.id,x]));
  data.eventAssets=[
   ...data.activeProperties.map(x=>({...x,assetType:'property',assetLabel:x.name||x.propertyId,ownerLabel:usersByUid[x.ownerUid]?.displayName||usersByUid[x.ownerUid]?.username||x.customerId||x.ownerUid})),
   ...data.activeBusinesses.map(x=>({...x,assetType:'business',assetLabel:x.name||x.businessId,ownerLabel:usersByUid[x.ownerUid]?.displayName||usersByUid[x.ownerUid]?.username||x.customerId||x.ownerUid})),
  ].sort((a,b)=>String(a.ownerLabel||'').localeCompare(String(b.ownerLabel||''))||String(a.assetLabel||'').localeCompare(String(b.assetLabel||'')));
+ // Backward-compatible combined list for the current Owner incident selector.
+ data.properties=data.eventAssets.map(x=>x.assetType==='business'?{...x,propertyId:x.businessId,currentValue:Number(x.cashReserves||0),propertyType:`business · ${x.industry||'general'}`} : x);
+ data.businesses=rawBusinesses;
  data.payrollRuns=data.auditLogs.filter(x=>x.action==='payroll.distributed');
- data.propertyIncidents=data.institutionEvents.filter(x=>x.eventType==='property-incident');
- data.assetIncidents=data.institutionEvents.filter(x=>['property-incident','business-incident','asset-incident'].includes(x.eventType));
+ data.propertyIncidents=data.institutionEvents.filter(x=>['property-incident','business-incident'].includes(x.eventType));
+ data.assetIncidents=data.propertyIncidents;
  data.economyEvents=data.institutionEvents.filter(x=>x.eventType==='economy-impact');
  const[settings,economy]=await Promise.all([getDoc(doc(db,'systemSettings','main')),getDoc(doc(db,'economicSettings','current'))]);
  return{allowed:true,bootstrap:bootstrap.data(),settings:settings.exists()?settings.data():{},economy:economy.exists()?economy.data():{},...data};
@@ -69,7 +74,15 @@ export async function createAssetIncident(db,uid,data){
  });
 }
 
-export async function createPropertyIncident(db,uid,data){return createAssetIncident(db,uid,{...data,assetType:'property',assetDocId:data.assetDocId||data.propertyDocId});}
+export async function createPropertyIncident(db,uid,data){
+ const id=data.assetDocId||data.propertyDocId;
+ if(!id)throw new Error('Choose a property or business.');
+ const propertySnap=await getDoc(doc(db,'properties',id));
+ if(propertySnap.exists())return createAssetIncident(db,uid,{...data,assetType:'property',assetDocId:id});
+ const businessSnap=await getDoc(doc(db,'businesses',id));
+ if(businessSnap.exists())return createAssetIncident(db,uid,{...data,assetType:'business',assetDocId:id});
+ throw new Error('The selected property or business is no longer active.');
+}
 
 export async function applyEconomyEvent(db,uid,data){
  if(!data.title?.trim()||data.title.trim().length<3)throw new Error('Enter an event title.');
