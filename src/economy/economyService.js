@@ -15,7 +15,7 @@ export function policyCost(settings,coverage){const p=pricing(settings),premium=
 export function eligibleInsuranceAssets(data,type){if(!data)return[];if(type==='property')return data.properties.map(x=>({id:x.id,permanentId:x.propertyId,name:x.name,type:'property'}));if(type==='business')return data.businesses.map(x=>({id:x.id,permanentId:x.businessId,name:x.name,type:'business'}));if(type==='loan')return data.loans.map(x=>({id:x.id,permanentId:x.loanId,name:x.productName||x.loanType||'AFG Loan',type:'loan'}));if(type==='income')return[{id:data.user.uid,permanentId:data.user.customerId,name:data.user.displayName||data.user.username||'Customer income',type:'customer'}];return[]}
 
 function deriveInvestment(investment,operations){
- const basePrincipal=Number(investment._basePrincipal??investment.principal||0),baseCurrentValue=Number(investment._baseCurrentValue??investment.currentValue||0);
+ const basePrincipal=Number(investment._basePrincipal??investment.principal??0),baseCurrentValue=Number(investment._baseCurrentValue??investment.currentValue??0);
  const related=operations.filter(x=>x.investmentDocId===investment.id&&['investment-add','investment-withdraw','investment-close'].includes(x.type));
  const closed=related.some(x=>x.type==='investment-close');
  const principalDelta=related.reduce((sum,x)=>sum+Number(x.principalDelta||0),0),valueDelta=related.reduce((sum,x)=>sum+Number(x.valueDelta||0),0);
