@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import PropertyManagementPage from'./PropertyManagementPage.jsx';createRoot(document.getElementById('root')).render(<React.StrictMode><PropertyManagementPage/></React.StrictMode>);
