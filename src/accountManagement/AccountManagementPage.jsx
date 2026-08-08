@@ -8,11 +8,14 @@ import {
   KeyRound,
   Landmark,
   LogOut,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
   UserRoundCog,
   Users,
+  X,
 } from 'lucide-react';
 import {
   adjustAccountBalance,
@@ -39,41 +42,94 @@ const app = getApps().length ? getApp() : initializeApp(config);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const COMMON_PERMISSIONS = [
-  'staff.portal.access',
-  'tasks.view',
-  'policies.view',
-  'academy.staff.view',
-  'applications.view',
-  'applications.review',
-  'applications.claim',
-  'applications.approve',
-  'applications.deny',
-  'loans.view',
-  'loans.modify',
-  'collections.manage',
-  'staff.applications.view',
-  'staff.applications.review',
-  'staff.applications.decide',
-  'staff.manage',
-  'hr.manage',
-  'training.manage',
-  'academy.manage',
-  'business.manage',
-  'property.manage',
-  'investments.manage',
-  'insurance.manage',
-  'support.view',
-  'support.manage',
-  'fraud.view',
-  'investigations.manage',
-  'compliance.view',
-  'compliance.manage',
-  'audit.view',
-  'audit.manage',
-  'technology.view',
-  'systems.manage',
+const PERMISSION_GROUPS = [
+  {
+    label: 'Staff Core',
+    permissions: [
+      ['staff.portal.access', 'Access Staff Workspace'],
+      ['tasks.view', 'View Assigned Tasks'],
+      ['policies.view', 'View Internal Policies'],
+      ['staff.manage', 'Manage Staff'],
+    ],
+  },
+  {
+    label: 'Applications & Lending',
+    permissions: [
+      ['applications.view', 'View Financial Applications'],
+      ['applications.review', 'Review Financial Applications'],
+      ['applications.claim', 'Claim Financial Applications'],
+      ['applications.approve', 'Approve Financial Applications'],
+      ['applications.deny', 'Deny Financial Applications'],
+      ['loans.view', 'View Loans'],
+      ['loans.modify', 'Modify / Service Loans'],
+      ['collections.manage', 'Manage Collections'],
+    ],
+  },
+  {
+    label: 'Human Resources',
+    permissions: [
+      ['staff.applications.view', 'View Staff Applications'],
+      ['staff.applications.review', 'Review Staff Applications'],
+      ['staff.applications.decide', 'Decide Staff Applications'],
+      ['hr.manage', 'Manage Human Resources'],
+    ],
+  },
+  {
+    label: 'Academy & Training',
+    permissions: [
+      ['academy.staff.view', 'Access Staff Academy'],
+      ['training.manage', 'Manage Staff Training'],
+      ['academy.manage', 'Manage Financial Academy'],
+    ],
+  },
+  {
+    label: 'Business & Economy',
+    permissions: [
+      ['business.manage', 'Manage Businesses'],
+      ['property.manage', 'Manage Property'],
+      ['investments.manage', 'Manage Investments'],
+      ['insurance.manage', 'Manage Insurance'],
+    ],
+  },
+  {
+    label: 'Customer Support',
+    permissions: [
+      ['support.view', 'View Support Cases'],
+      ['support.manage', 'Manage Support Cases'],
+    ],
+  },
+  {
+    label: 'Fraud & Investigations',
+    permissions: [
+      ['fraud.view', 'View Fraud Records'],
+      ['investigations.manage', 'Manage Investigations'],
+    ],
+  },
+  {
+    label: 'Risk & Compliance',
+    permissions: [
+      ['compliance.view', 'View Compliance Records'],
+      ['compliance.manage', 'Manage Compliance Cases'],
+    ],
+  },
+  {
+    label: 'Internal Audit',
+    permissions: [
+      ['audit.view', 'View Audit Records'],
+      ['audit.manage', 'Manage Internal Audit'],
+    ],
+  },
+  {
+    label: 'Technology & Systems',
+    permissions: [
+      ['technology.view', 'View Technology Records'],
+      ['systems.manage', 'Manage Technology & Systems'],
+    ],
+  },
 ];
+
+const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((group) => group.permissions.map(([key]) => key));
+const PERMISSION_LABELS = Object.fromEntries(PERMISSION_GROUPS.flatMap((group) => group.permissions));
 
 function defaultForm(record) {
   return {
@@ -97,7 +153,8 @@ export default function AccountManagementPage() {
   const [reason, setReason] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [balanceDrafts, setBalanceDrafts] = useState({});
-  const [permissionText, setPermissionText] = useState('');
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [permissionChoice, setPermissionChoice] = useState('');
   const [permissionReason, setPermissionReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -118,7 +175,8 @@ export default function AccountManagementPage() {
       setSelected(record);
       setForm(defaultForm(record));
       setBalanceDrafts(Object.fromEntries(record.accounts.map((account) => [account.id, String(account.balance ?? 0)])));
-      setPermissionText((record.permissions?.permissions || []).join('\n'));
+      setSelectedPermissions([...(record.permissions?.permissions || [])].sort());
+      setPermissionChoice('');
     } catch (cause) {
       setError(cause.message);
     } finally {
@@ -142,10 +200,7 @@ export default function AccountManagementPage() {
   }), []);
 
   const filtered = useMemo(() => searchAccounts(accounts, query), [accounts, query]);
-  const currentPermissions = useMemo(
-    () => permissionText.split('\n').map((item) => item.trim()).filter(Boolean),
-    [permissionText],
-  );
+  const availablePermissions = useMemo(() => new Set(ALL_PERMISSIONS.filter((key) => !selectedPermissions.includes(key))), [selectedPermissions]);
 
   async function saveAccount() {
     if (!selected) return;
@@ -171,7 +226,7 @@ export default function AccountManagementPage() {
     setError('');
     setSuccess('');
     try {
-      await saveAccountPermissions(db, user.uid, selected, currentPermissions, permissionReason);
+      await saveAccountPermissions(db, user.uid, selected, selectedPermissions, permissionReason);
       setSuccess('Permission package updated and audited. Navigation access will reflect the new permissions after the user refreshes.');
       setPermissionReason('');
       await openAccount(selected.uid);
@@ -182,11 +237,14 @@ export default function AccountManagementPage() {
     }
   }
 
-  function togglePermission(permission) {
-    const next = new Set(currentPermissions);
-    if (next.has(permission)) next.delete(permission);
-    else next.add(permission);
-    setPermissionText([...next].sort().join('\n'));
+  function addPermission() {
+    if (!permissionChoice || selectedPermissions.includes(permissionChoice)) return;
+    setSelectedPermissions((current) => [...current, permissionChoice].sort());
+    setPermissionChoice('');
+  }
+
+  function removePermission(permission) {
+    setSelectedPermissions((current) => current.filter((item) => item !== permission));
   }
 
   async function saveBalance(account) {
@@ -271,13 +329,34 @@ export default function AccountManagementPage() {
             <section className="am-bank-section am-permissions-section">
               <div className="am-panel-title"><div><small>AUTHORIZATION</small><h3>Permissions</h3></div><KeyRound/></div>
               {protectedOwner ? <p>The Founder & Owner permission package is protected and cannot be replaced.</p> : <>
-                <div className="am-permission-grid">
-                  {COMMON_PERMISSIONS.map((permission) => <label key={permission} className={currentPermissions.includes(permission) ? 'enabled' : ''}>
-                    <input type="checkbox" checked={currentPermissions.includes(permission)} onChange={() => togglePermission(permission)}/>
-                    <span>{permission}</span>
-                  </label>)}
+                <div className="am-permission-picker">
+                  <label>
+                    Add permission
+                    <select value={permissionChoice} onChange={(e) => setPermissionChoice(e.target.value)}>
+                      <option value="">Choose a permission…</option>
+                      {PERMISSION_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
+                        {group.permissions.map(([key, name]) => <option key={key} value={key} disabled={!availablePermissions.has(key)}>{name}</option>)}
+                      </optgroup>)}
+                    </select>
+                  </label>
+                  <button type="button" className="am-add-permission" disabled={!permissionChoice} onClick={addPermission}><Plus/> Add</button>
                 </div>
-                <label className="am-reason">Exact permission list<textarea value={permissionText} onChange={(e) => setPermissionText(e.target.value)} placeholder="One permission per line"/></label>
+
+                <div className="am-permission-actions">
+                  <button type="button" onClick={() => setSelectedPermissions([...ALL_PERMISSIONS])}><CheckCircle2/> Grant all permissions</button>
+                  <button type="button" onClick={() => setSelectedPermissions([])}><Trash2/> Clear all</button>
+                </div>
+
+                <div className="am-selected-permissions">
+                  <div className="am-permission-summary"><strong>Selected permissions</strong><span>{selectedPermissions.length} of {ALL_PERMISSIONS.length}</span></div>
+                  {selectedPermissions.length ? <div className="am-permission-chips">
+                    {selectedPermissions.map((permission) => <span key={permission} className="am-permission-chip">
+                      <span><strong>{PERMISSION_LABELS[permission] || permission}</strong><small>{permission}</small></span>
+                      <button type="button" aria-label={`Remove ${permission}`} onClick={() => removePermission(permission)}><X/></button>
+                    </span>)}
+                  </div> : <p>No staff permissions assigned. The account will retain customer-only access unless its rank grants separate management authority.</p>}
+                </div>
+
                 <label className="am-reason">Permission change reason<textarea value={permissionReason} onChange={(e) => setPermissionReason(e.target.value)} placeholder="Explain why this permission package is changing."/></label>
                 <button className="am-primary" disabled={busy} onClick={savePermissions}>Save permissions</button>
               </>}
