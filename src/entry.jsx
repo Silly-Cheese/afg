@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { deleteApp, initializeApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import BootstrapApp from './bootstrap/BootstrapApp.jsx';
 import './styles.css';
@@ -17,6 +18,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 const root = createRoot(document.getElementById('root'));
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -54,26 +56,99 @@ function Loading() {
   );
 }
 
-function installPortalNavigation() {
-  const inject = () => {
+function managementTitle(rankName = '') {
+  return /Manager|Director|Executive|Chief|President|Owner/i.test(rankName);
+}
+
+async function getNavigationAccess(user) {
+  if (!user) return { signedIn: false, isOwner: false, isStaff: false, isManager: false, isLending: false };
+  const [bootstrapSnap, staffSnap, permissionsSnap] = await Promise.all([
+    getDoc(doc(db, 'system', 'bootstrap')),
+    getDoc(doc(db, 'staffProfiles', user.uid)),
+    getDoc(doc(db, 'staffPermissions', user.uid)),
+  ]);
+  const isOwner = bootstrapSnap.exists() && bootstrapSnap.data().ownerUid === user.uid;
+  const staff = staffSnap.exists() ? staffSnap.data() : null;
+  const permissions = permissionsSnap.exists() ? permissionsSnap.data().permissions || [] : [];
+  const isStaff = isOwner || Boolean(staff && staff.staffStatus !== 'terminated');
+  const isManager = isOwner || permissions.includes('staff.manage') || permissions.includes('owner.override_all') || managementTitle(staff?.rankName);
+  const isLending = isOwner || permissions.some((permission) => [
+    'applications.view',
+    'applications.review',
+    'applications.claim',
+    'applications.approve',
+    'applications.deny',
+    'loans.view',
+    'owner.override_all',
+  ].includes(permission));
+  return { signedIn: true, isOwner, isStaff, isManager, isLending, permissions };
+}
+
+const routeRules = {
+  '/owner-control': (a) => a.isOwner,
+  '/account-management': (a) => a.isOwner,
+  '/staff-management': (a) => a.isManager,
+  '/departments': (a) => a.isStaff,
+  '/staff': (a) => a.isStaff,
+  '/career-center': (a) => a.isStaff,
+  '/lending': (a) => a.isLending,
+  '/economy-center': (a) => a.signedIn,
+  '/academy-center': (a) => a.signedIn,
+  '/careers': (a) => a.signedIn,
+  '/loans': (a) => a.signedIn,
+  '/applications': (a) => a.signedIn,
+  '/progression': (a) => a.signedIn,
+};
+
+function pathFromAnchor(anchor) {
+  try {
+    const url = new URL(anchor.href, window.location.origin);
+    let path = url.pathname;
+    if (basePath && path.startsWith(basePath)) path = path.slice(basePath.length) || '/';
+    return path.replace(/\/$/, '') || '/';
+  } catch {
+    return '';
+  }
+}
+
+function installPermissionAwareNavigation(access) {
+  const apply = () => {
+    document.querySelectorAll('a[href]').forEach((anchor) => {
+      const path = pathFromAnchor(anchor);
+      const allowed = routeRules[path];
+      if (!allowed) return;
+      const visible = Boolean(allowed(access));
+      anchor.hidden = !visible;
+      anchor.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      if (!visible) anchor.setAttribute('tabindex', '-1');
+      else anchor.removeAttribute('tabindex');
+    });
+
     const nav = document.querySelector('.portal-sidebar nav');
     if (!nav) return;
     const links = [
-      ['staffmanagement', '/staff-management', '⚙', 'Staff Management'],
-      ['phase14', '/owner-control', '◆', 'Owner Control Center'],
-      ['phase13', '/economy-center', '◇', 'Business & Economy'],
-      ['phase12', '/career-center', '▲', 'Careers & Branches'],
-      ['phase11', '/academy-center', '●', 'Financial Academy'],
-      ['phase10', '/departments', '▦', 'Department Operations'],
-      ['phase9', '/staff', '■', 'Staff Workspace'],
-      ['phase8', '/careers', '◆', 'Careers & Staff'],
-      ['phase7', '/loans', '◈', 'Loan Center'],
-      ['phase6', '/lending', '▣', 'Lending workspace'],
-      ['phase5', '/applications', '▤', 'Applications'],
-      ['phase4', '/progression', '★', 'Progression & Trust'],
+      ['accountmanagement', '/account-management', '◉', 'Account Management', access.isOwner],
+      ['staffmanagement', '/staff-management', '⚙', 'Staff Management', access.isManager],
+      ['phase14', '/owner-control', '◆', 'Owner Control Center', access.isOwner],
+      ['phase13', '/economy-center', '◇', 'Business & Economy', access.signedIn],
+      ['phase12', '/career-center', '▲', 'Careers & Branches', access.isStaff],
+      ['phase11', '/academy-center', '●', 'Financial Academy', access.signedIn],
+      ['phase10', '/departments', '▦', 'Department Operations', access.isStaff],
+      ['phase9', '/staff', '■', 'Staff Workspace', access.isStaff],
+      ['phase8', '/careers', '◆', 'Careers & Staff', access.signedIn],
+      ['phase7', '/loans', '◈', 'Loan Center', access.signedIn],
+      ['phase6', '/lending', '▣', 'Lending workspace', access.isLending],
+      ['phase5', '/applications', '▤', 'Applications', access.signedIn],
+      ['phase4', '/progression', '★', 'Progression & Trust', access.signedIn],
     ];
-    links.forEach(([key, href, icon, text]) => {
-      if (nav.querySelector(`[data-${key}-link]`)) return;
+
+    links.forEach(([key, href, icon, text, allowed]) => {
+      const existing = nav.querySelector(`[data-${key}-link]`);
+      if (!allowed) {
+        existing?.remove();
+        return;
+      }
+      if (existing) return;
       const link = document.createElement('a');
       link.href = pageUrl(href);
       link.dataset[`${key}Link`] = 'true';
@@ -85,8 +160,18 @@ function installPortalNavigation() {
       else nav.appendChild(link);
     });
   };
-  inject();
-  new MutationObserver(inject).observe(document.body, { childList: true, subtree: true });
+
+  apply();
+  new MutationObserver(apply).observe(document.body, { childList: true, subtree: true });
+}
+
+function waitForAuth() {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
 }
 
 async function start() {
@@ -98,8 +183,10 @@ async function start() {
       return;
     }
 
+    const authUser = await waitForAuth();
+    const navigationAccess = await getNavigationAccess(authUser);
     root.unmount();
-    await deleteApp(app);
+    installPermissionAwareNavigation(navigationAccess);
 
     if (appPath === '/signin') return import('./auth/loginEntry.jsx');
     if (appPath === '/progression') return import('./progression/progressionEntry.jsx');
@@ -109,6 +196,7 @@ async function start() {
     if (appPath === '/careers') return import('./staffing/staffingEntry.jsx');
     if (appPath === '/staff') return import('./staff/staffEntry.jsx');
     if (appPath === '/staff-management') return import('./staffManagement/staffManagementEntry.jsx');
+    if (appPath === '/account-management') return import('./accountManagement/accountManagementEntry.jsx');
     if (appPath === '/departments') return import('./departments/departmentEntry.jsx');
     if (appPath === '/academy-center') return import('./academy/academyEntry.jsx');
     if (appPath === '/career-center') return import('./careers/careerEntry.jsx');
@@ -116,7 +204,6 @@ async function start() {
     if (appPath === '/owner-control') return import('./admin/adminEntry.jsx');
 
     await import('./main.jsx');
-    installPortalNavigation();
   } catch (error) {
     root.render(
       <main className="bootstrap-loading bootstrap-error-screen">
