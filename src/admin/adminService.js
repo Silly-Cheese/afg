@@ -3,6 +3,7 @@ const map=s=>s.docs.map(d=>({id:d.id,...d.data()}));
 const code=p=>`${p}-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
 export const ECONOMIC_CLIMATES=['stable-growth','rapid-growth','inflation','recession','housing-boom','housing-decline','credit-tightening','business-expansion','investment-surge'];
 export const PROPERTY_INCIDENT_TYPES=['fire','flood','storm','tornado','earthquake','burglary','vandalism','structural-failure','utility-failure','accident','other'];
+export const BUSINESS_INCIDENT_TYPES=['fire','flood','storm','burglary','vandalism','equipment-failure','supply-disruption','cyber-incident','utility-failure','accident','other'];
 export const PROPERTY_SEVERITIES=['minor','moderate','major','severe','catastrophic'];
 export const ECONOMY_EVENT_TARGETS=['properties','businesses','investments'];
 
@@ -10,11 +11,21 @@ export async function loadOwnerCenter(db,uid){
  const bootstrap=await getDoc(doc(db,'system','bootstrap'));
  const allowed=bootstrap.exists()&&bootstrap.data().ownerUid===uid;
  if(!allowed)return{allowed:false};
- const names=['users','accounts','staffProfiles','applications','loans','businesses','properties','investments','insuranceClaims','insurancePolicies','branches','departments','auditLogs','ownerOverrides','institutionEvents','achievements'];
+ const names=['users','accounts','staffProfiles','applications','loans','businesses','properties','investments','insuranceClaims','insurancePolicies','branches','departments','auditLogs','ownerOverrides','institutionEvents','achievements','bankingOperations'];
  const results=await Promise.all(names.map(async n=>{try{return map(await getDocs(collection(db,n)))}catch{return[]}}));
  const data=Object.fromEntries(names.map((n,i)=>[n,results[i]]));
+ const soldPropertyIds=new Set(data.bankingOperations.filter(x=>x.type==='property_sale').map(x=>x.targetDocId));
+ const shutdownBusinessIds=new Set(data.bankingOperations.filter(x=>x.type==='business_shutdown').map(x=>x.targetDocId));
+ data.activeProperties=data.properties.filter(x=>!soldPropertyIds.has(x.id));
+ data.activeBusinesses=data.businesses.filter(x=>!shutdownBusinessIds.has(x.id));
+ const usersByUid=Object.fromEntries(data.users.map(x=>[x.uid||x.id,x]));
+ data.eventAssets=[
+  ...data.activeProperties.map(x=>({...x,assetType:'property',assetLabel:x.name||x.propertyId,ownerLabel:usersByUid[x.ownerUid]?.displayName||usersByUid[x.ownerUid]?.username||x.customerId||x.ownerUid})),
+  ...data.activeBusinesses.map(x=>({...x,assetType:'business',assetLabel:x.name||x.businessId,ownerLabel:usersByUid[x.ownerUid]?.displayName||usersByUid[x.ownerUid]?.username||x.customerId||x.ownerUid})),
+ ].sort((a,b)=>String(a.ownerLabel||'').localeCompare(String(b.ownerLabel||''))||String(a.assetLabel||'').localeCompare(String(b.assetLabel||'')));
  data.payrollRuns=data.auditLogs.filter(x=>x.action==='payroll.distributed');
  data.propertyIncidents=data.institutionEvents.filter(x=>x.eventType==='property-incident');
+ data.assetIncidents=data.institutionEvents.filter(x=>['property-incident','business-incident','asset-incident'].includes(x.eventType));
  data.economyEvents=data.institutionEvents.filter(x=>x.eventType==='economy-impact');
  const[settings,economy]=await Promise.all([getDoc(doc(db,'systemSettings','main')),getDoc(doc(db,'economicSettings','current'))]);
  return{allowed:true,bootstrap:bootstrap.data(),settings:settings.exists()?settings.data():{},economy:economy.exists()?economy.data():{},...data};
@@ -32,23 +43,33 @@ export async function updateEconomy(db,uid,data){
  await addDoc(collection(db,'auditLogs'),{actorUid:uid,actorType:'owner',action:'economy.settings.updated',targetType:'economy',targetId:'current',reason:`Economic settings and setup pricing updated under ${data.climate}`,immutable:true,createdAt:serverTimestamp()});
 }
 
-export async function createPropertyIncident(db,uid,data){
- if(!data.propertyDocId)throw new Error('Choose a property.');
+export async function createAssetIncident(db,uid,data){
+ if(!data.assetDocId)throw new Error('Choose a property or business.');
+ if(!['property','business'].includes(data.assetType))throw new Error('Choose a valid asset.');
  if(!data.incidentType)throw new Error('Choose an incident type.');
  if(!data.description?.trim()||data.description.trim().length<15)throw new Error('Enter a complete incident description.');
  const loss=Number(data.valueLossPercent||0);
  if(!Number.isFinite(loss)||loss<0||loss>100)throw new Error('Value loss must be between 0 and 100 percent.');
- const propertyRef=doc(db,'properties',data.propertyDocId),eventRef=doc(collection(db,'institutionEvents')),auditRef=doc(collection(db,'auditLogs')),notificationRef=doc(collection(db,'notifications'));
+ const collectionName=data.assetType==='business'?'businesses':'properties';
+ const assetRef=doc(db,collectionName,data.assetDocId),eventRef=doc(collection(db,'institutionEvents')),auditRef=doc(collection(db,'auditLogs')),notificationRef=doc(collection(db,'notifications'));
  await runTransaction(db,async tx=>{
-  const propertySnap=await tx.get(propertyRef);if(!propertySnap.exists())throw new Error('Property no longer exists.');
-  const property=propertySnap.data(),previousValue=Number(property.currentValue||property.purchasePrice||0),newValue=Math.max(0,Math.round(previousValue*(1-loss/100)*100)/100),eventId=code('PINC');
-  const conditionAfter=data.conditionAfter||(loss>=75?'critical':loss>=40?'damaged':loss>0?'fair':property.condition||'good');
-  tx.update(propertyRef,{currentValue:newValue,condition:conditionAfter,lastIncidentId:eventId,lastIncidentAt:serverTimestamp(),updatedAt:serverTimestamp()});
-  tx.set(eventRef,{eventId,title:data.title?.trim()||`${String(data.incidentType).replaceAll('-',' ')} at ${property.name}`,description:data.description.trim(),eventType:'property-incident',incidentType:data.incidentType,severity:data.severity||'moderate',propertyDocId:data.propertyDocId,propertyId:property.propertyId,propertyName:property.name,propertyOwnerUid:property.ownerUid,previousValue,newValue,valueLossPercent:loss,conditionAfter,status:'active',createdBy:uid,createdAt:serverTimestamp()});
-  tx.set(notificationRef,{recipientUid:property.ownerUid,type:'property-incident',title:`Incident reported at ${property.name}`,message:data.description.trim(),read:false,createdAt:serverTimestamp()});
-  tx.set(auditRef,{actorUid:uid,actorType:'owner',action:'property.incident.created',targetType:'property',targetId:property.propertyId,reason:data.description.trim(),immutable:true,createdAt:serverTimestamp()});
+  const assetSnap=await tx.get(assetRef);if(!assetSnap.exists())throw new Error('Selected asset no longer exists.');
+  const asset=assetSnap.data(),eventId=code(data.assetType==='business'?'BINC':'PINC');
+  if(data.assetType==='property'){
+   const previousValue=Number(asset.currentValue||asset.purchasePrice||0),newValue=Math.max(0,Math.round(previousValue*(1-loss/100)*100)/100),conditionAfter=data.conditionAfter||(loss>=75?'critical':loss>=40?'damaged':loss>0?'fair':asset.condition||'good');
+   tx.update(assetRef,{currentValue:newValue,condition:conditionAfter,lastIncidentId:eventId,lastIncidentAt:serverTimestamp(),updatedAt:serverTimestamp()});
+   tx.set(eventRef,{eventId,title:data.title?.trim()||`${String(data.incidentType).replaceAll('-',' ')} at ${asset.name}`,description:data.description.trim(),eventType:'property-incident',assetType:'property',incidentType:data.incidentType,severity:data.severity||'moderate',propertyDocId:data.assetDocId,propertyId:asset.propertyId,propertyName:asset.name,propertyOwnerUid:asset.ownerUid,assetOwnerUid:asset.ownerUid,previousValue,newValue,valueLossPercent:loss,conditionAfter,status:'active',claimEligible:data.claimEligible!==false,createdBy:uid,createdAt:serverTimestamp()});
+  }else{
+   const previousValue=Number(asset.cashReserves||0),newValue=Math.max(0,Math.round(previousValue*(1-loss/100)*100)/100);
+   tx.update(assetRef,{cashReserves:newValue,lastIncidentId:eventId,lastIncidentAt:serverTimestamp(),updatedAt:serverTimestamp()});
+   tx.set(eventRef,{eventId,title:data.title?.trim()||`${String(data.incidentType).replaceAll('-',' ')} at ${asset.name}`,description:data.description.trim(),eventType:'business-incident',assetType:'business',incidentType:data.incidentType,severity:data.severity||'moderate',businessDocId:data.assetDocId,businessId:asset.businessId,businessName:asset.name,businessOwnerUid:asset.ownerUid,assetOwnerUid:asset.ownerUid,previousValue,newValue,valueLossPercent:loss,status:'active',claimEligible:data.claimEligible!==false,createdBy:uid,createdAt:serverTimestamp()});
+  }
+  tx.set(notificationRef,{recipientUid:asset.ownerUid,type:`${data.assetType}-incident`,title:`Incident reported at ${asset.name}`,message:data.description.trim(),read:false,createdAt:serverTimestamp()});
+  tx.set(auditRef,{actorUid:uid,actorType:'owner',action:`${data.assetType}.incident.created`,targetType:data.assetType,targetId:data.assetType==='property'?asset.propertyId:asset.businessId,reason:data.description.trim(),immutable:true,createdAt:serverTimestamp()});
  });
 }
+
+export async function createPropertyIncident(db,uid,data){return createAssetIncident(db,uid,{...data,assetType:'property',assetDocId:data.assetDocId||data.propertyDocId});}
 
 export async function applyEconomyEvent(db,uid,data){
  if(!data.title?.trim()||data.title.trim().length<3)throw new Error('Enter an event title.');
