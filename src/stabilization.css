@@ -1,56 +1,37 @@
-/* Final cross-portal stabilization layer */
-:root{color-scheme:light}
-html,body,#root{min-height:100%;overflow-x:hidden}
-select,input,textarea,button{font:inherit}
-select{color:#111!important;background:#fff!important;color-scheme:light;-webkit-text-fill-color:#111}
-select option{color:#111!important;background:#fff!important;-webkit-text-fill-color:#111}
+/* AFG cross-portal stabilization and unified responsive layer */
+:root{color-scheme:light;--afg-bg:#f5f5f3;--afg-panel:#fff;--afg-border:#dedede;--afg-ink:#111;--afg-muted:#666;--afg-gold:#c9a227}
+*{box-sizing:border-box}html,body,#root{min-height:100%;overflow-x:hidden}body{margin:0}select,input,textarea,button{font:inherit}button,a{touch-action:manipulation}select{color:#111!important;background:#fff!important;color-scheme:light;-webkit-text-fill-color:#111}select option{color:#111!important;background:#fff!important;-webkit-text-fill-color:#111}input,textarea{max-width:100%}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.58}
 
-/* Replace development-phase labels with permanent product labels. */
-.banking-modal .eyebrow,.academy-header>div>span{font-size:0!important}
-.banking-modal .eyebrow::after{content:'AFG PERSONAL BANKING';font-size:13px}
-.academy-header>div>span::after{content:'APEX FINANCIAL ACADEMY';font-size:13px}
+/* Permanent labels instead of build-phase labels. */
+.banking-modal .eyebrow,.academy-header>div>span{font-size:0!important}.banking-modal .eyebrow::after{content:'AFG PERSONAL BANKING';font-size:13px}.academy-header>div>span::after{content:'APEX FINANCIAL ACADEMY';font-size:13px}
+
+/* Customer navigation is compact, grouped, and permission-aware. */
+.portal-sidebar nav .afg-nav-group{margin-top:16px!important;padding-top:10px!important;border-top:1px solid rgba(255,255,255,.12);font-size:10px!important;letter-spacing:.16em!important;color:#aaa!important}.portal-sidebar nav a[hidden]{display:none!important}.portal-sidebar nav a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.portal-sidebar nav a>span:last-child{overflow:hidden;text-overflow:ellipsis}.portal-sidebar nav{scrollbar-width:thin}
 
 /* Banking dialogs */
-.banking-modal-backdrop{padding:16px!important;align-items:center!important;overflow-y:auto!important}
-.banking-modal{width:min(680px,100%)!important;max-height:calc(100dvh - 32px)!important;overflow-y:auto!important;margin:auto!important;padding-bottom:max(24px,env(safe-area-inset-bottom))!important}
-.banking-modal .modal-actions{position:sticky!important;bottom:0!important;background:#fff!important;padding-top:14px!important;padding-bottom:max(8px,env(safe-area-inset-bottom))!important;z-index:2}
-.banking-modal select,.banking-modal input,.banking-modal textarea{width:100%;min-height:52px}
+.banking-modal-backdrop{padding:16px!important;align-items:center!important;overflow-y:auto!important}.banking-modal{width:min(680px,100%)!important;max-height:calc(100dvh - 32px)!important;overflow-y:auto!important;margin:auto!important;padding-bottom:max(24px,env(safe-area-inset-bottom))!important}.banking-modal .modal-actions{position:sticky!important;bottom:0!important;background:#fff!important;padding-top:14px!important;padding-bottom:max(8px,env(safe-area-inset-bottom))!important;z-index:2}.banking-modal select,.banking-modal input,.banking-modal textarea{width:100%;min-height:52px}
 
-/* Customer mobile drawer */
-@media(max-width:760px){
- .portal-sidebar{width:min(86vw,340px)!important;max-width:340px!important;height:100dvh!important;overflow-y:auto!important;padding:18px 14px max(24px,env(safe-area-inset-bottom))!important}
- .portal-sidebar nav{gap:2px!important}
- .portal-sidebar nav a,.portal-sidebar nav button{min-height:44px!important;font-size:15px!important;padding:9px 12px!important}
- .portal-sidebar nav svg{width:19px!important;height:19px!important}
- .portal-sidebar .portal-group{font-size:11px!important;margin:12px 12px 3px!important}
- .portal-sidebar .sidebar-footer{display:none!important}
- .portal-content{padding:18px!important}
- .portal-welcome{display:block!important}
- .phase-chip{margin-top:12px!important}
- .banking-modal{border-radius:24px!important;padding:24px 20px!important}
- .banking-modal header h2{font-size:32px!important;line-height:1.1!important}
- .banking-modal .modal-actions{display:grid!important;grid-template-columns:1fr!important}
- .banking-modal .modal-actions button{width:100%!important}
-}
+/* Unified dedicated-portal baseline */
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>main{min-width:0}
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell) :is(input,select,textarea){color:#111;background:#fff}
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside a[hidden]{display:none!important}
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside a,
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside button{min-height:44px;text-decoration:none}
+:is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>main>header{box-shadow:0 1px 0 rgba(0,0,0,.02)}
+.form-alert,.admin-alert,.economy-alert{overflow-wrap:anywhere}
 
-/* Dedicated portals */
-.loan-shell main,.academy-shell main,.admin-shell main{min-width:0}
-.loan-shell select,.academy-shell select,.admin-shell select{color:#111!important;background:#fff!important}
-.customer-loan-actions,.servicing-actions{margin-top:24px;padding:22px;border:1px solid #e1e1e1;border-radius:22px;background:#fafafa}
-.customer-loan-actions label,.servicing-actions label{display:grid;gap:7px;margin:14px 0;font-weight:700}
-.customer-loan-actions select,.customer-loan-actions input,.customer-loan-actions textarea,.servicing-actions select,.servicing-actions input,.servicing-actions textarea{width:100%;min-height:50px;border:1px solid #d2d2d2;border-radius:14px;padding:12px;background:#fff;color:#111}
-.customer-loan-actions button,.servicing-actions>button{min-height:50px;border:0;border-radius:14px;background:#111;color:#fff;padding:12px 18px;font-weight:800}
-.admin-summary{padding:16px;border-radius:14px;background:#f3f3f3;margin:14px 0}
+.customer-loan-actions,.servicing-actions{margin-top:24px;padding:22px;border:1px solid #e1e1e1;border-radius:22px;background:#fafafa}.customer-loan-actions label,.servicing-actions label{display:grid;gap:7px;margin:14px 0;font-weight:700}.customer-loan-actions select,.customer-loan-actions input,.customer-loan-actions textarea,.servicing-actions select,.servicing-actions input,.servicing-actions textarea{width:100%;min-height:50px;border:1px solid #d2d2d2;border-radius:14px;padding:12px;background:#fff;color:#111}.customer-loan-actions button,.servicing-actions>button{min-height:50px;border:0;border-radius:14px;background:#111;color:#fff;padding:12px 18px;font-weight:800}.admin-summary{padding:16px;border-radius:14px;background:#f3f3f3;margin:14px 0}
+
 @media(max-width:760px){
- .loan-shell,.academy-shell,.admin-shell{display:block!important}
- .loan-shell>aside,.academy-shell>aside,.admin-shell>aside{position:static!important;width:100%!important;min-height:auto!important;display:flex!important;flex-wrap:wrap!important;gap:8px!important;padding:14px!important}
- .loan-shell>aside a,.loan-shell>aside button,.academy-shell>aside a,.academy-shell>aside button,.admin-shell>aside a,.admin-shell>aside button{flex:1 1 145px!important;min-height:44px!important;font-size:14px!important}
- .loan-shell>main,.academy-shell>main,.admin-shell>main{padding:18px!important}
- .loan-shell main>header,.academy-header,.admin-shell main>header{padding:24px!important;border-radius:24px!important}
- .loan-shell main>header h1,.academy-header h1,.admin-shell main>header h1{font-size:38px!important;line-height:1.08!important}
- .loan-layout{grid-template-columns:1fr!important}
- .loan-workspace,.loan-list{padding:20px!important}
- .loan-metrics{grid-template-columns:1fr 1fr!important}
- .academy-metrics{grid-template-columns:1fr!important}
- .customer-loan-actions,.servicing-actions{padding:18px!important}
+ .portal-sidebar{width:min(88vw,340px)!important;max-width:340px!important;height:100dvh!important;overflow-y:auto!important;padding:14px 12px max(24px,env(safe-area-inset-bottom))!important}.portal-sidebar nav{gap:1px!important}.portal-sidebar nav a,.portal-sidebar nav button{min-height:44px!important;font-size:14px!important;padding:9px 11px!important}.portal-sidebar nav svg{width:18px!important;height:18px!important}.portal-sidebar .portal-group{font-size:10px!important;margin:11px 10px 3px!important}.portal-sidebar .sidebar-footer{display:none!important}.portal-content{padding:16px!important}.portal-welcome{display:block!important}.phase-chip{margin-top:12px!important}
+ .banking-modal{border-radius:22px!important;padding:22px 18px!important}.banking-modal header h2{font-size:30px!important;line-height:1.1!important}.banking-modal .modal-actions{display:grid!important;grid-template-columns:1fr!important}.banking-modal .modal-actions button{width:100%!important}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell){display:block!important}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside{position:relative!important;top:auto!important;width:100%!important;height:auto!important;min-height:auto!important;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;overflow-x:auto!important;gap:6px!important;padding:10px!important;scrollbar-width:thin}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside a,
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>aside button{flex:0 0 auto!important;white-space:nowrap!important;min-height:44px!important;font-size:13px!important;padding:9px 11px!important;margin:0!important}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>main{padding:14px!important}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>main>header{padding:20px!important;border-radius:20px!important;display:grid!important;gap:14px!important}
+ :is(.loan-shell,.academy-shell,.admin-shell,.economy-shell,.sm-shell,.am-shell,.staff-shell,.department-shell,.career-shell,.careers-shell,.applications-shell,.lending-shell)>main>header h1{font-size:clamp(30px,9vw,38px)!important;line-height:1.08!important;margin-bottom:8px!important}
+ .loan-layout,.applications-layout,.hr-layout,.am-layout,.sm-layout,.economy-layout{grid-template-columns:1fr!important}.loan-workspace,.loan-list{padding:18px!important}.loan-metrics{grid-template-columns:1fr 1fr!important}.academy-metrics{grid-template-columns:1fr!important}.customer-loan-actions,.servicing-actions{padding:16px!important}
 }
+@media(max-width:480px){.loan-metrics{grid-template-columns:1fr!important}.portal-content{padding:12px!important}}
