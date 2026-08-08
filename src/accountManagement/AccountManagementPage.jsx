@@ -5,6 +5,7 @@ import { getFirestore } from 'firebase/firestore';
 import {
   BadgeDollarSign,
   CheckCircle2,
+  KeyRound,
   Landmark,
   LogOut,
   RefreshCw,
@@ -19,6 +20,7 @@ import {
   loadAccountRecord,
   loadAllAccounts,
   saveAccountManagementChanges,
+  saveAccountPermissions,
   searchAccounts,
 } from './accountManagementService.js';
 import '../styles.css';
@@ -36,6 +38,42 @@ const config = {
 const app = getApps().length ? getApp() : initializeApp(config);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+const COMMON_PERMISSIONS = [
+  'staff.portal.access',
+  'tasks.view',
+  'policies.view',
+  'academy.staff.view',
+  'applications.view',
+  'applications.review',
+  'applications.claim',
+  'applications.approve',
+  'applications.deny',
+  'loans.view',
+  'loans.modify',
+  'collections.manage',
+  'staff.applications.view',
+  'staff.applications.review',
+  'staff.applications.decide',
+  'staff.manage',
+  'hr.manage',
+  'training.manage',
+  'academy.manage',
+  'business.manage',
+  'property.manage',
+  'investments.manage',
+  'insurance.manage',
+  'support.view',
+  'support.manage',
+  'fraud.view',
+  'investigations.manage',
+  'compliance.view',
+  'compliance.manage',
+  'audit.view',
+  'audit.manage',
+  'technology.view',
+  'systems.manage',
+];
 
 function defaultForm(record) {
   return {
@@ -59,6 +97,8 @@ export default function AccountManagementPage() {
   const [reason, setReason] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [balanceDrafts, setBalanceDrafts] = useState({});
+  const [permissionText, setPermissionText] = useState('');
+  const [permissionReason, setPermissionReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -78,6 +118,7 @@ export default function AccountManagementPage() {
       setSelected(record);
       setForm(defaultForm(record));
       setBalanceDrafts(Object.fromEntries(record.accounts.map((account) => [account.id, String(account.balance ?? 0)])));
+      setPermissionText((record.permissions?.permissions || []).join('\n'));
     } catch (cause) {
       setError(cause.message);
     } finally {
@@ -101,6 +142,10 @@ export default function AccountManagementPage() {
   }), []);
 
   const filtered = useMemo(() => searchAccounts(accounts, query), [accounts, query]);
+  const currentPermissions = useMemo(
+    () => permissionText.split('\n').map((item) => item.trim()).filter(Boolean),
+    [permissionText],
+  );
 
   async function saveAccount() {
     if (!selected) return;
@@ -118,6 +163,30 @@ export default function AccountManagementPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function savePermissions() {
+    if (!selected) return;
+    setBusy(true);
+    setError('');
+    setSuccess('');
+    try {
+      await saveAccountPermissions(db, user.uid, selected, currentPermissions, permissionReason);
+      setSuccess('Permission package updated and audited. Navigation access will reflect the new permissions after the user refreshes.');
+      setPermissionReason('');
+      await openAccount(selected.uid);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function togglePermission(permission) {
+    const next = new Set(currentPermissions);
+    if (next.has(permission)) next.delete(permission);
+    else next.add(permission);
+    setPermissionText([...next].sort().join('\n'));
   }
 
   async function saveBalance(account) {
@@ -158,7 +227,7 @@ export default function AccountManagementPage() {
 
     <main className="am-main">
       <header className="am-hero">
-        <div><span>AFG EXECUTIVE ADMINISTRATION</span><h1>Account Management</h1><p>Search and manage any AFG account from one audited Owner console.</p></div>
+        <div><span>AFG EXECUTIVE ADMINISTRATION</span><h1>Account Management</h1><p>Search, restrict, edit, fund, and permission any AFG identity from one audited Owner console.</p></div>
         <button className="am-refresh" onClick={() => refreshDirectory()}><RefreshCw/> Refresh</button>
       </header>
 
@@ -198,6 +267,21 @@ export default function AccountManagementPage() {
 
             <label className="am-reason">Required audit reason<textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain why this account is being changed."/></label>
             <button className="am-primary" disabled={busy} onClick={saveAccount}>Save account changes</button>
+
+            <section className="am-bank-section am-permissions-section">
+              <div className="am-panel-title"><div><small>AUTHORIZATION</small><h3>Permissions</h3></div><KeyRound/></div>
+              {protectedOwner ? <p>The Founder & Owner permission package is protected and cannot be replaced.</p> : <>
+                <div className="am-permission-grid">
+                  {COMMON_PERMISSIONS.map((permission) => <label key={permission} className={currentPermissions.includes(permission) ? 'enabled' : ''}>
+                    <input type="checkbox" checked={currentPermissions.includes(permission)} onChange={() => togglePermission(permission)}/>
+                    <span>{permission}</span>
+                  </label>)}
+                </div>
+                <label className="am-reason">Exact permission list<textarea value={permissionText} onChange={(e) => setPermissionText(e.target.value)} placeholder="One permission per line"/></label>
+                <label className="am-reason">Permission change reason<textarea value={permissionReason} onChange={(e) => setPermissionReason(e.target.value)} placeholder="Explain why this permission package is changing."/></label>
+                <button className="am-primary" disabled={busy} onClick={savePermissions}>Save permissions</button>
+              </>}
+            </section>
 
             <section className="am-bank-section">
               <div className="am-panel-title"><div><small>FICTIONAL BANKING</small><h3>Linked accounts</h3></div><BadgeDollarSign/></div>
